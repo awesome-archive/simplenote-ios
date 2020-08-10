@@ -7,13 +7,14 @@
 //
 
 #import "UIBarButtonItem+Images.h"
-#import "VSThemeManager.h"
 #import "SPOutsideTouchView.h"
 #import "UIDevice+Extensions.h"
+#import "Simplenote-Swift.h"
+
 
 static CGFloat const UIBarButtonSidePaddingPad      = 9.0;
 static CGFloat const UIBarButtonSidePaddingPhone    = 13.0;
-
+static CGFloat const UIBarButtonWidth               = 44.0;
 
 @implementation UIBarButtonItem (Images)
 
@@ -29,13 +30,12 @@ static CGFloat const UIBarButtonSidePaddingPhone    = 13.0;
 
 + (UIBarButtonItem *)barButtonContainingCustomViewWithImage:(UIImage *)image imageAlignment:(UIBarButtonImageAlignment)imageAlignment target:(id)target selector:(SEL)action
 {
-    CGFloat buttonWidth = 44.0;
     CGFloat sideAdjustment = [UIDevice isPad] ? UIBarButtonSidePaddingPad : UIBarButtonSidePaddingPhone;
     
     UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(imageAlignment == UIBarButtonImageAlignmentLeft ? -sideAdjustment : 0,
                                                                   -1,
-                                                                  MAX(buttonWidth, image.size.width),
-                                                                  MAX(buttonWidth, image.size.height))];
+                                                                  UIBarButtonWidth,
+                                                                  image.size.height)];
     button.isAccessibilityElement = NO;
 
     // use UIImageRenderingModeAlwaysTemplate to get button to adopt tint color
@@ -52,23 +52,23 @@ static CGFloat const UIBarButtonSidePaddingPhone    = 13.0;
 + (UIBarButtonItem *)backBarButtonWithTitle:(NSString *)title
                                      target:(id)target
                                      action:(SEL)action
-{
-    VSTheme *theme = [[VSThemeManager sharedManager] theme];
-    
+{    
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    UIColor *tintColor = [UIColor simplenoteTintColor];
+    UIImage *backImage = [UIImage imageWithName:UIImageNameChevronLeft];
 
-    [button setImage:[[UIImage imageNamed:@"back_chevron"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]
+    [button setImage:[backImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]
             forState:UIControlStateNormal];
 
     // Inset by -1 to match notes list chevron position
     [button setImageEdgeInsets:UIEdgeInsetsMake(-1, 0, 0, 0)];
     
     [button setTitle:title forState:UIControlStateNormal];
-    [button setTitleColor:[theme colorForKey:@"tintColor"] forState:UIControlStateNormal];
+    [button setTitleColor:tintColor forState:UIControlStateNormal];
     
     [button addTarget:target action:action forControlEvents:UIControlEventTouchUpInside];
 
-    button.titleLabel.font = [theme fontForKey:@"barButtonFont"];
+    button.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     
     [button sizeToFit];
     

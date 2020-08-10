@@ -1,11 +1,3 @@
-//
-//  SPNoteEditorViewController.h
-//  Simplenote
-//
-//  Created by Tom Witkin on 7/9/13.
-//  Copyright (c) 2013 Automattic. All rights reserved.
-//
-
 #import <UIKit/UIKit.h>
 #import "SPActionSheet.h"
 #import "SPActivityView.h"
@@ -13,12 +5,15 @@
 #import "SPAddCollaboratorsViewController.h"
 #import "SPHorizontalPickerView.h"
 #import <Simperium/Simperium.h>
+
+
 @class Note;
+@class SPBlurEffectView;
 @class SPTextView;
 @class SPEditorTextView;
 @class SPOutsideTouchView;
 
-@interface SPNoteEditorViewController : UIViewController  <UITextViewDelegate, SPActionSheetDelegate, SPActivityViewDelegate, UIActionSheetDelegate, SPTagViewDelegate, SPCollaboratorDelegate, SPHorizontalPickerViewDelegate, SPBucketDelegate> {
+@interface SPNoteEditorViewController : UIViewController  <SPActionSheetDelegate, SPActivityViewDelegate, UIActionSheetDelegate, SPTagViewDelegate, SPCollaboratorDelegate, SPHorizontalPickerViewDelegate, SPBucketDelegate> {
     
     // Other Objects
     NSTimer *saveTimer;
@@ -32,16 +27,11 @@
     BOOL bViewingVersions;
     BOOL beditingTags;
     BOOL bActionSheetVisible;
-    BOOL bVoiceoverEnabled;
     
     CGAffineTransform navigationBarTransform;
     CGFloat scrollPosition;
     
     SPOutsideTouchView *navigationButtonContainer;
-    UIButton *backButton;
-    UIButton *actionButton;
-    UIButton *newButton;
-    UIButton *keyboardButton;
     
     UIBarButtonItem *nextSearchButton;
     UIBarButtonItem *prevSearchButton;
@@ -51,12 +41,10 @@
     SPActivityView *noteActivityView;
     SPActionSheet *noteActionSheet;
     SPActionSheet *versionActionSheet;
-    UIActionSheet *deleteActionSheet;
     
     SPHorizontalPickerView *versionPickerView;
     
     BOOL bSearching;
-    NSArray *searchResultRanges;
     NSInteger highlightedSearchResultIndex;
     
     UILabel *searchDetailLabel;
@@ -66,11 +54,32 @@
     
 }
 
+// Navigation Bar
+@property (nonatomic, strong, readonly) SPBlurEffectView *navigationBarBackground;
+
+// Navigation Back Button
+@property (nonatomic, strong) UIButton *backButton;
+
+// Navigation Buttons
+@property (nonatomic, strong) UIButton *actionButton;
+@property (nonatomic, strong) UIButton *checklistButton;
+@property (nonatomic, strong) UIButton *keyboardButton;
+@property (nonatomic, strong) UIButton *createNoteButton;
+
 @property (nonatomic, strong) Note *currentNote;
 @property (nonatomic, strong) SPEditorTextView *noteEditorTextView;
 @property (nonatomic, strong) SPTagView *tagView;
-
 @property (nonatomic, strong) NSString *searchString;
+
+// Voiceover
+@property (nonatomic, strong) UIView *bottomView;
+
+// Keyboard!
+@property (nonatomic, strong) NSArray *keyboardNotificationTokens;
+@property (nonatomic) BOOL isKeyboardVisible;
+
+@property (nonatomic, getter=isEditingNote) BOOL editingNote;
+@property (nonatomic, getter=isPreviewing) BOOL previewing;
 
 - (void)prepareToPopView;
 - (void)updateNote:(Note *)note;
@@ -81,6 +90,8 @@
 - (void)didReceiveNewContent;
 - (void)didReceiveVersion:(NSString *)version data:(NSDictionary *)data;
 - (void)didDeleteCurrentNote;
+
+- (void)resetNavigationBarToIdentityWithAnimation:(BOOL)animated completion:(void (^)())completion;
 
 - (void)save;
 

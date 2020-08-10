@@ -1,0 +1,119 @@
+4.23
+-----
+ 
+4.22
+-----
+-   Fixed several layout issues that affected the Editor
+-   Now it's possible to interactively drag the Scroll Bar within the Editor
+-   Updated Tags limit to up to 256 characters
+ 
+4.21
+-----
+-   New darker dark mode.
+-   Updated editor typography.
+ 
+4.20.1
+------
+-   New Privacy Notice for California Users
+
+4.20
+-----
+-   Fixed a bug that affected the Share Extension's Appearance.
+-   Fixed RTL support in the Authentication Screens.
+-   Fixed RTL support in the Tags Editor.
+
+4.19
+-----
+-   Updated Password Strength requirements.
+-   Simplenote will request to upgrade insecure passwords whenever you login.
+-   Implemented a new color palette!
+-   The checklist button is hidden unless actively editing a note.
+
+4.18
+-----
+-   Fixed a bug that prevented the Tag Search Operator not to properly filter in non english languages.
+ 
+4.17
+-----
+-   Fixed an issue that caused the Notes List to show up incorrectly, in Right to Left languages.
+-   Fixed a bug that removed whitelines in between List Items.
+
+4.16
+-----
+-   The SearchBar will no longer be displayed when the Trash Filter is active.
+-   Search results now display matching tags!
+-   We're now supporting the `tag:keyword` search operator. Simplenote will yield Notes whose tag names contain such *keyword*.
+-   From now on, you'll be able alter the order of your Search Results right from the Notes List.
+-   Notes List's Interface is now looking more beautiful than ever.
+-   The way in which Notes are previewed has been upgraded to fit more content onScreen.
+-   Search is now diacritic insensitive: type search terms with or without accents to get matches!
+-   Fixed a bug in which the Search Mode wouldn't properly be dismissed from the Editor
+-   Fixed a bug that caused the Editor's Keyboard Appearance not to match the selected theme
+-   Dark Mode is now darker than just dark, for an improved dark side experience.
+-   Simplenote's Launch Screen will now match iOS's Appearance Settings
+-   Simplenote now supports Password Autofill support. Logging in has never been faster!
+-   Now the Sidebar will show up on the right hand side, whenever Right to Left is enabled on your phone.
+
+4.15.1
+------
+-   We've fixed a bug that prevented the Feedback UI from being dismissed
+
+4.15
+-----
+-   Simplenote just got brand new App Icons!
+-   Fixed a bug that affects tap detections over links.
+
+4.14.2
+======
+-   Fixed a bug that caused notes with specific emoji sequences to crash the app.
+
+4.14.1
+======
+-   Fixed a bug that made rendered the Add Collaborators button not visible.
+
+4.14
+====
+-   Fixed a bug that prevented users from repositioning the caret in the Email field (Login / SignUp)
+-   Fixed a bug that caused the Markdown Preview UI to get dismissed accidentally
+-   Fixed an issue that might crash the app with a specific emojis combination
+
+4.13
+====
+-   Every Navigation Bar in Simplenote now has a super cool blur effect!
+-   Fixed a bug that caused the StatusBar to be hidden when Simplenote's Settings were displayed
+-   Fixed a bug that caused Swipe to Dismiss gesture not to properly work in the Editor
+-   Fixed a bug that allowed Peek and Pop to open notes in the Trash.
+-   Fixed a bug tht caused Text Selection in the editor to push the Markdown Preview UI.
+
+4.12
+====
+-   Simplenote just got brand new Icons!
+-   Sidebar's UX has been entirely refreshed.
+
+4.11.0
+======
+-   Search Bar is now looking better than ever!
+-   Notes List refreshed to display Pinned state on the right hand side.
+-   iOS 11 Is now the minimum supported OS.
+-   Fixed a bug in which the Editor Colors might not be properly initialized
+-   Fixed a Search Highlight issue that affected the Notes List.
+-   Fixed an iOS 13 bug that caused links to be accidentally opened
+
+4.10.0
+======
+-   Redesigned Onboarding and Authentication Interface(s).
+-   Notes List now supports Peek and Pop.
+
+4.9.0
+=====
+-   Simplenote now works with Siri shortcuts allowing you to open the app, open existing notes, and create new notes directly from Siri
+-   New Swipe Actions available in the Notes List: Pin and Share!
+-   The Notes List now displays an icon, outlining notes that have been published.
+-   When sharing to the WordPress App, Notes will no longer be blockquoted.
+-   The iOS share extension UI has been completly updated.
+-   Fixed an iOS 13 bug that caused the Notes List to get clipped upon Swipe Actions.
+-   iOS 13 Now has a new Theme: System default, which will match iOS's style.
+
+4.8.0
+=====
+-   The Notes List can now be sorted by creation and modification dates.

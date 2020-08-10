@@ -17,7 +17,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.4.1</string>
+	<string>${VERSION_SHORT}</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
@@ -30,13 +30,21 @@
 				<string>simplenote</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>appcenter-e0b5a7f7-67b8-c548-07d1-c35d3be73eaf</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>4420</string>
+	<string>${VERSION_LONG}</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>Fabric</key>
 	<dict>
 		<key>APIKey</key>
-		<string>39f00d04d6837320a9c583f4d201332394364204</string>
+		<string>FABRIC_API_KEY</string>
 		<key>Kits</key>
 		<array>
 			<dict>
@@ -58,20 +66,17 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>UIAppFonts</key>
+	<key>NSContactsUsageDescription</key>
+	<string>This app requires contacts access to properly share data with other users.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>This app requires Face ID access to secure your notes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app does not require Photo Library access.</string>
+	<key>NSUserActivityTypes</key>
 	<array>
-		<string>SourceSansPro-Black.ttf</string>
-		<string>SourceSansPro-BlackIt.ttf</string>
-		<string>SourceSansPro-Bold.ttf</string>
-		<string>SourceSansPro-BoldIt.ttf</string>
-		<string>SourceSansPro-ExtraLight.ttf</string>
-		<string>SourceSansPro-ExtraLightIt.ttf</string>
-		<string>SourceSansPro-It.ttf</string>
-		<string>SourceSansPro-Light.ttf</string>
-		<string>SourceSansPro-LightIt.ttf</string>
-		<string>SourceSansPro-Regular.ttf</string>
-		<string>SourceSansPro-Semibold.ttf</string>
-		<string>SourceSansPro-SemiboldIt.ttf</string>
+		<string>com.codality.NotationalFlow.launch</string>
+		<string>com.codality.NotationalFlow.newNote</string>
+		<string>com.codality.NotationalFlow.openNote</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

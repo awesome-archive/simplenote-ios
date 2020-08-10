@@ -8,34 +8,34 @@
 
 #import "SPEntryListCell.h"
 #import "VSThemeManager.h"
+#import "Simplenote-Swift.h"
 
-@interface SPEntryListCell ()
-@end
+
 
 @implementation SPEntryListCell
 
-- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
 {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (self) {
-        
-        self.backgroundColor = [self.theme colorForKey:@"backgroundColor"];
+
+        self.backgroundColor = [UIColor simplenoteTableViewCellBackgroundColor];
         
         primaryLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         primaryLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        primaryLabel.font = [self.theme fontForKey:@"collaboratorCellPrimaryLabelFont"];
-        primaryLabel.textColor = [self.theme colorForKey:@"collaboratorCellPrimaryLabelFontColor"];
+        primaryLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+        primaryLabel.textColor = [UIColor simplenoteTextColor];
         [self.contentView addSubview:primaryLabel];
         
         secondaryLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         secondaryLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        secondaryLabel.font = [self.theme fontForKey:@"collaboratorCellSecondaryLabelFont"];
-        secondaryLabel.textColor = [self.theme colorForKey:@"collaboratorCellSecondaryLabelFontColor"];
+        secondaryLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        secondaryLabel.textColor = [UIColor simplenoteTitleColor];
         [self.contentView addSubview:secondaryLabel];
         
-        UIImage *checkedImage = [[UIImage imageNamed:@"icon_checkmark_checked"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-        UIImage *uncheckedImage = [UIImage imageNamed:@"icon_checkmark_unchecked"];
-        
+        UIImage *checkedImage = [UIImage imageWithName:UIImageNameCheckmarkChecked];
+        UIImage *uncheckedImage = [UIImage imageWithName:UIImageNameCheckmarkUnchecked];
+
         checkmarkImageView = [[UIImageView alloc] initWithImage:uncheckedImage
                                                highlightedImage:checkedImage];
         checkmarkImageView.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin;

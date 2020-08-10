@@ -4,16 +4,15 @@ NSString *const SPDefaultTokenName = @"SPDefaultTokenName";
 NSString *const SPHeadlineTokenName = @"SPHeadlineTokenName";
 
 @interface SPInteractiveTextStorage ()
-{
-    NSMutableAttributedString *_backingStore;
-    BOOL _dynamicTextNeedsUpdate;
-}
+
+@property (nonatomic, strong) NSMutableAttributedString *backingStore;
+@property (nonatomic, assign) BOOL dynamicTextNeedsUpdate;
 
 @end
 
 @implementation SPInteractiveTextStorage
 
-- (id)init
+- (instancetype)init
 {
     self = [super init];
     if (self) {
@@ -63,7 +62,7 @@ NSString *const SPHeadlineTokenName = @"SPHeadlineTokenName";
     [self applyTokenAttributesToRange:extendedRange];
 }
 
--(void)processEditing
+- (void)processEditing
 {
     if(_dynamicTextNeedsUpdate)
     {

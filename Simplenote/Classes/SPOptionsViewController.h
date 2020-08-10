@@ -10,19 +10,13 @@
 #import "DTPinLockController.h"
 #import "SPTableViewController.h"
 
-@interface SPOptionsViewController : SPTableViewController <PinLockDelegate> {
+@interface SPOptionsViewController : SPTableViewController <PinLockDelegate, UIPickerViewDelegate, UIPickerViewDataSource> {
     
     //Preferences
     NSNumber *sortOrderPref;
     NSNumber *numPreviewLinesPref;
 }
 
-//Preferences
-- (BOOL)condesedNoteListPref;
-
 @end
 
-NSString *const SPCondensedNoteListPref;
-NSString *const SPCondensedNoteListPreferenceChangedNotification;
-NSString *const SPAlphabeticalSortPref;
-NSString *const SPAlphabeticalSortPreferenceChangedNotification;
+extern NSString *const SPAlphabeticalTagSortPref;

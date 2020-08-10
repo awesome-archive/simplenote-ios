@@ -8,8 +8,8 @@
 
 #import "SPHorizontalPickerView.h"
 #import "VSThemeManager.h"
-#import "MagnifierView.h"
 #import "SPHorizontalPickerGradientView.h"
+#import "Simplenote-Swift.h"
 
 static CGSize PickerDefaultSize = {88.0, 88.0};
 static NSString *itemIdentifier = @"horizontalPickerItem";
@@ -77,8 +77,8 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
                                       frame.size.width - 2 * horizontalPadding,
                                       [self.theme floatForKey:@"horizontalPickerTitleHeight"]);
         titleLabel.textAlignment = NSTextAlignmentCenter;
-        titleLabel.font = [self.theme fontForKey:@"horizontalPickerTitleFont"];
-        titleLabel.textColor = [self.theme colorForKey:@"horizontalPickerTitleFontColor"];
+        titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+        titleLabel.textColor = [UIColor simplenoteTitleColor];
         titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
         [self addSubview:titleLabel];
         
@@ -112,16 +112,8 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
         itemCollectionView.showsHorizontalScrollIndicator = NO;
         itemCollectionView.backgroundColor = [UIColor clearColor];
         
-        self.backgroundColor = [self.theme colorForKey:@"actionSheetBackgroundColor"];
-        
-        // magnifier view
-        selectionMagnifierView = [[MagnifierView alloc] initWithFrame:CGRectMake(0, collectionViewYOrigin, self.itemWidth, self.bounds.size.height - collectionViewYOrigin - verticalPadding)];
-		selectionMagnifierView.viewToMagnify = self;
-        selectionMagnifierView.touchPoint = itemCollectionView.center;
-        selectionMagnifierView.userInteractionEnabled = NO;
-        [self addSubview:selectionMagnifierView];
-        
-        
+        self.backgroundColor = [UIColor simplenoteTableViewBackgroundColor];
+
         // add gradients
         leftGradientView = [[SPHorizontalPickerGradientView alloc] initWithGradientViewDirection:SPHorizontalPickerGradientViewDirectionLeft];
         [self addSubview:leftGradientView];
@@ -141,24 +133,16 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
     
     [super layoutSubviews];
     
-    selectionMagnifierView.touchPoint = itemCollectionView.center;
-    selectionMagnifierView.center = itemCollectionView.center;
-    
+    CGFloat gradientLeftPosition = itemCollectionView.center.x - (self.itemWidth / 2);
+    CGFloat gradientRightPosition = itemCollectionView.center.x + (self.itemWidth / 2);
     leftGradientView.frame = CGRectMake(0,
                                         itemCollectionView.frame.origin.y,
-                                        selectionMagnifierView.frame.origin.x,
+                                        gradientLeftPosition,
                                         itemCollectionView.frame.size.height);
-    rightGradientView.frame = CGRectMake(selectionMagnifierView.frame.origin.x + selectionMagnifierView.frame.size.width,
+    rightGradientView.frame = CGRectMake(gradientRightPosition,
                                          itemCollectionView.frame.origin.y,
-                                         self.bounds.size.width - selectionMagnifierView.frame.origin.x - selectionMagnifierView.frame.size.width,
+                                         self.bounds.size.width - gradientRightPosition,
                                          itemCollectionView.frame.size.height);
-    
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [selectionMagnifierView setNeedsDisplay];
-    });
-    
-
 }
 
 - (void)willMoveToSuperview:(UIView *)newSuperview {
@@ -173,7 +157,7 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
     double delayInSeconds = 0.15;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
-        [itemCollectionView setContentOffset:[self scrollOffsetForIndex:selectedIndex]];
+        [self->itemCollectionView setContentOffset:[self scrollOffsetForIndex:self->selectedIndex]];
         
         [UIView animateWithDuration:0.2
                          animations:^{
@@ -215,14 +199,6 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
 }
 
 #pragma mark UIScrollViewDelegate methods
-
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    
-    [selectionMagnifierView setNeedsDisplay];
-    
-}
-
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
     
         [self selectItemAtPoint:scrollView.contentOffset sendDelegateCallback:YES];
@@ -250,19 +226,10 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
     index = MIN(index, [delegate numberOfItemsInPickerView:self] - 1);
         
     [self selectItemAtIndex:index sendDelegateCallback:send animated:YES];
-    
 }
 
 - (void)setSelectedIndex:(NSInteger)index {
-    
-//    selectedIndex = index;
-//    
-//    [itemCollectionView selectItemAtIndexPath:[NSIndexPath indexPathForItem:index inSection:0]
-//                                     animated:NO
-//                               scrollPosition:UICollectionViewScrollPositionNone];
-    
     selectedIndex = index;
-
 }
 
 - (void)selectItemAtIndex:(NSInteger)index {
@@ -282,10 +249,10 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
         // only dend delegate method if the view isn't scrolling
         // and have a delay in case the user starts scrolling again immediately
-        if (send && !itemCollectionView.isDecelerating && !itemCollectionView.isDragging &&
+        if (send && !self->itemCollectionView.isDecelerating && !self->itemCollectionView.isDragging &&
             
-            [delegate respondsToSelector:@selector(pickerView:didSelectItemAtIndex:)])
-            [delegate pickerView:self didSelectItemAtIndex:index];
+            [self->delegate respondsToSelector:@selector(pickerView:didSelectItemAtIndex:)])
+            [self->delegate pickerView:self didSelectItemAtIndex:index];
     });
     
     selectedIndex = index;
@@ -331,10 +298,6 @@ static NSString *itemIdentifier = @"horizontalPickerItem";
 
 - (void)reloadData {
     [itemCollectionView reloadData];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [selectionMagnifierView setNeedsDisplay];
-    });
-
 }
 
 @end

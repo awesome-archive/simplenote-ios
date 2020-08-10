@@ -8,6 +8,7 @@
 
 #import "SPTagPill.h"
 #import "SPTagStub.h"
+#import "Simplenote-Swift.h"
 
 @interface SPTagPill ()
 
@@ -27,9 +28,8 @@
         
         [self setTitle:tagStub.tag forState:UIControlStateNormal];
         [self setTitleColor:[self color] forState:UIControlStateNormal];
-        [self setTitleColor:[self highlightedColor] forState:UIControlStateHighlighted];
-        
-        self.titleLabel.font = [self.theme fontForKey:@"tagViewFont"];
+
+        self.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
         
         [self addTarget:t
                     action:a
@@ -63,14 +63,8 @@
 
 - (UIColor *)color {
     
-    return [self.theme colorForKey:@"tagViewFontColor"];
+    return [UIColor simplenoteTagViewTextColor];
 }
-
-- (UIColor *)highlightedColor {
-    
-    return [self.theme colorForKey:@"tagViewFontColorSelected"];
-}
-
 
 - (NSString *)accessibilityHint {
     
@@ -90,13 +84,12 @@
                                                                         self.frame.size.width - horizontalSpacing,
                                                                         self.frame.size.height - verticalSpacing)];
         
-        _deletionOverlayView.backgroundColor = [self.theme colorForKey:@"tagViewDeletionBackgroundColor"];
+        _deletionOverlayView.backgroundColor = [UIColor simplenoteTagViewDeletionBackgroundColor];
         _deletionOverlayView.layer.cornerRadius = 4.0;
         _deletionOverlayView.clipsToBounds = YES;
-        _deletionOverlayView.layer.borderColor = [self.theme colorForKey:@"tagViewDeletionBackgroundBorderColor"].CGColor;
-        _deletionOverlayView.layer.borderWidth = 1.0 / [[UIScreen mainScreen] scale];
-        
-        _deletionButtonImageView = [[UIImageView alloc] initWithImage:[self.theme imageForKey:@"tagViewDeletionImage"]];
+
+        UIImage *image = [UIImage imageWithName:UIImageNameTagViewDeletion];
+        _deletionButtonImageView = [[UIImageView alloc] initWithImage:image];
         [_deletionButtonImageView sizeToFit];
         
         _deletionButtonImageView.center = [self convertPoint:self.center fromView:self.superview];
@@ -112,8 +105,8 @@
                      animations:^{
                          
                          self.titleLabel.alpha = 0.3;
-                         _deletionOverlayView.alpha = 1.0;
-                         _deletionButtonImageView.alpha = 1.0;
+                         self->_deletionOverlayView.alpha = 1.0;
+                         self->_deletionButtonImageView.alpha = 1.0;
                      }];
 }
 
@@ -125,12 +118,12 @@
                     animations:^{
                         
                         self.titleLabel.alpha = 1.0;
-                        _deletionOverlayView.alpha = 0.0;
-                        _deletionButtonImageView.alpha = 0.0;
+                        self->_deletionOverlayView.alpha = 0.0;
+                        self->_deletionButtonImageView.alpha = 0.0;
                     } completion:^(BOOL finished) {
                     
-                        [_deletionOverlayView removeFromSuperview];
-                        [_deletionButtonImageView removeFromSuperview];
+                        [self->_deletionOverlayView removeFromSuperview];
+                        [self->_deletionButtonImageView removeFromSuperview];
                     }];
 }
 

@@ -8,14 +8,16 @@
 
 #import "SPMarkdownPreviewViewController.h"
 #import "SPMarkdownParser.h"
-#import "VSThemeManager.h"
 #import "UIBarButtonItem+Images.h"
 #import "UIDevice+Extensions.h"
+#import "Simplenote-Swift.h"
 
+@import WebKit;
 @import SafariServices;
 
-@interface SPMarkdownPreviewViewController ()<UIWebViewDelegate>
-@property (nonatomic, strong) UIWebView *webView;
+@interface SPMarkdownPreviewViewController () <WKNavigationDelegate, UIScrollViewDelegate>
+@property (nonatomic, strong) SPBlurEffectView  *navigationBarBackground;
+@property (nonatomic, strong) WKWebView         *webView;
 @end
 
 @implementation SPMarkdownPreviewViewController
@@ -26,44 +28,69 @@
     
     self.title = NSLocalizedString(@"Preview", @"Title of Markdown preview screen");
     
+    [self configureNavigationBarBackground];
     [self configureWebView];
+    [self configureLayout];
     [self applyStyle];
     [self displayMarkdown];
 }
 
+- (void)configureNavigationBarBackground
+{
+    NSAssert(self.navigationBarBackground == nil, @"NavigationBarBackground was already initialized!");
+    self.navigationBarBackground = [SPBlurEffectView navigationBarBlurView];
+}
+
 - (void)configureWebView
 {
-    UIWebView *webView = [UIWebView new];
-    webView.translatesAutoresizingMaskIntoConstraints = NO;
+    NSAssert(self.webView == nil, @"WebView was already initialized!");
+
+    WKPreferences *prefs = [WKPreferences new];
+    prefs.javaScriptEnabled = NO;
+
+    WKWebViewConfiguration *config = [WKWebViewConfiguration new];
+    config.preferences = prefs;
     
-    [self.view addSubview:webView];
-    
-    NSDictionary *views = NSDictionaryOfVariableBindings(webView);
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"|[webView]|"
-                                                                      options:0
-                                                                      metrics:nil
-                                                                        views:views]];
-    [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[webView]|"
-                                                                      options:0
-                                                                      metrics:nil
-                                                                        views:views]];
-    if ([webView respondsToSelector:@selector(allowsLinkPreview)]) {
-        webView.allowsLinkPreview = YES;
-    }
-    
-    webView.delegate = self;
-    
+    WKWebView *webView = [[WKWebView alloc] initWithFrame:self.view.frame configuration:config];
+    webView.opaque = NO;
+    webView.allowsLinkPreview = YES;
+    webView.scrollView.delegate = self;
+    webView.navigationDelegate = self;
     self.webView = webView;
+}
+
+- (void)configureLayout
+{
+    NSAssert(self.webView != nil, @"WebView wasn't properly initialized!");
+    NSAssert(self.navigationBarBackground != nil, @"NavigationBarBackground wasn't properly initialized!");
+
+    self.webView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.navigationBarBackground.translatesAutoresizingMaskIntoConstraints = NO;
+
+    [self.view addSubview:self.webView];
+    [self.view addSubview:self.navigationBarBackground];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [self.navigationBarBackground.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.navigationBarBackground.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.navigationBarBackground.leftAnchor constraintEqualToAnchor:self.view.leftAnchor],
+        [self.navigationBarBackground.rightAnchor constraintEqualToAnchor:self.view.rightAnchor],
+    ]];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [self.webView.leftAnchor constraintEqualToAnchor:self.view.leftAnchor],
+        [self.webView.rightAnchor constraintEqualToAnchor:self.view.rightAnchor],
+        [self.webView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.webView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+    ]];
 }
 
 - (void)applyStyle
 {
-    VSTheme *theme = [[VSThemeManager sharedManager] theme];
-    UIColor *backgroundColor = [theme colorForKey:@"backgroundColor"];
+    UIColor *backgroundColor = [UIColor simplenoteBackgroundColor];
     
     self.view.backgroundColor = backgroundColor;
     self.webView.backgroundColor = backgroundColor;
-    self.webView.opaque = NO;
 
     UIBarButtonItem *backButton = [UIBarButtonItem backBarButtonWithTitle:NSLocalizedString(@"Back", @"Title of Back button for Markdown preview")
                                                                     target:self
@@ -92,23 +119,50 @@
     [self.navigationController popViewControllerAnimated:YES];
 }
 
-#pragma mark - UIWebViewDelegate
 
-- (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType
+#pragma mark - UIScrollView Delegate
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView
 {
-    // Prevent links from being opened within this webview.
-    if (navigationType == UIWebViewNavigationTypeLinkClicked) {
-        if ([SFSafariViewController class]) {
-            SFSafariViewController *sfvc = [[SFSafariViewController alloc] initWithURL:[request URL]];
-            [self presentViewController:sfvc animated:YES completion:nil];
-        } else {
-            [[UIApplication sharedApplication] openURL:[request URL]];
+    // Slowly Fade-In the NavigationBar's Blur
+    [self.navigationBarBackground adjustAlphaMatchingContentOffsetOf:scrollView];
+}
+
+
+#pragma mark - WKNavigationDelegate
+
+- (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
+{
+    NSURL* targetURL = navigationAction.request.URL;
+    NSURL* bundleURL = NSBundle.mainBundle.bundleURL;
+    BOOL isAnchorURL = targetURL != nil && [targetURL.absoluteString containsString:bundleURL.absoluteString];
+
+    /// Detect scenarios such as markdown/#someInternalLink
+    ///
+    if (navigationAction.navigationType != WKNavigationTypeLinkActivated || isAnchorURL) {
+        decisionHandler(WKNavigationActionPolicyAllow);
+        return;
+    }
+
+    SFSafariViewController *sfvc = [[SFSafariViewController alloc] initWithURL:targetURL];
+    [self presentViewController:sfvc animated:YES completion:nil];
+
+    decisionHandler(WKNavigationActionPolicyCancel);
+}
+
+#pragma mark - Traits
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
+{
+    [super traitCollectionDidChange:previousTraitCollection];
+
+    if (@available(iOS 13.0, *)) {
+        if ([previousTraitCollection hasDifferentColorAppearanceComparedToTraitCollection:self.traitCollection] == false) {
+            return;
         }
 
-        return NO;
+        [self displayMarkdown];
     }
-    
-    return YES;
 }
 
 @end

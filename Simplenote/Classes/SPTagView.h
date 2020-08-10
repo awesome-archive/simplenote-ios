@@ -41,8 +41,9 @@
     NSArray *tagCompletionPills;
 }
 
-@property (nonatomic, assign) id<SPTagViewDelegate> tagDelegate;
+@property (nonatomic, weak) id<SPTagViewDelegate> tagDelegate;
 
+- (void)scrollEntryFieldToVisible:(BOOL)animated;
 - (void)clearAllTags;
 - (BOOL)setupWithTagNames:(NSArray *)tagNames;
 - (void)applyStyle;

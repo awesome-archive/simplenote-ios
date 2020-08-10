@@ -8,7 +8,6 @@
 
 #import "SPTagView.h"
 #import "VSThemeManager.h"
-#import "VSTheme+Simplenote.h"
 #import "SPTagStub.h"
 #import <Simperium/Simperium.h>
 #import "SPAppDelegate.h"
@@ -19,6 +18,8 @@
 #import "SPTagCompletionPill.h"
 #import "Simplenote-Swift.h"
 
+
+
 @interface SPTagView ()
 
 @property (nonatomic, strong) SPTagPill *activeDeletionPill;
@@ -28,19 +29,21 @@
 
 @implementation SPTagView
 
-- (id)initWithFrame:(CGRect)frame
+- (instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
     if (self) {
-        
-        // setup self
-        
+        /// Note:
+        /// `scrollEnabled = NO` causes layout issues when `UITextField` becomes the first responder, in
+        /// certain documents. We're simply always allowing scroll, and fixing a glitch!
+        ///
         tagScrollView = [[UIScrollView alloc] initWithFrame:self.bounds];
         tagScrollView.scrollsToTop = NO;
         tagScrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         tagScrollView.alwaysBounceHorizontal = YES;
         tagScrollView.showsHorizontalScrollIndicator = NO;
         tagScrollView.delegate = self;
+        tagScrollView.scrollEnabled = YES;
         [self addSubview:tagScrollView];
         
         autoCompleteScrollView = [[UIScrollView alloc] initWithFrame:self.bounds];
@@ -51,25 +54,34 @@
         autoCompleteScrollView.hidden = YES;
         [self addSubview:autoCompleteScrollView];
     
-        addTagField = [SPTagEntryField tagEntryFieldWithdelegate:self];
+        addTagField = [SPTagEntryField tagEntryField];
         addTagField.delegate = self;
+        addTagField.tagDelegate = self;
         [tagScrollView addSubview:addTagField];
         
         tagPills = [NSMutableArray array];
 
+        [self ensureRightToLeftSupportIsInitialized];
         [self applyStyle];
     }
     
     return self;
 }
 
-- (void)applyStyle {
-    self.backgroundColor = [self.theme colorForKey:@"backgroundColor"];
-    addTagField.keyboardAppearance = (self.theme.isDark ? UIKeyboardAppearanceDark : UIKeyboardAppearanceDefault);
+- (void)applyStyle
+{
+    self.backgroundColor = [UIColor simplenoteBackgroundColor];
+    autoCompleteScrollView.backgroundColor = [UIColor simplenoteBackgroundColor];
+    addTagField.keyboardAppearance = (SPUserInterface.isDark ? UIKeyboardAppearanceDark : UIKeyboardAppearanceDefault);
 }
 
-- (void)layoutSubviews {
-    
+- (BOOL)isFirstResponder
+{
+    return addTagField.isFirstResponder;
+}
+
+- (void)layoutSubviews
+{
     CGFloat xOrigin = 0.0;
     CGFloat spacing = [self.theme floatForKey:@"tagViewItemSideSpacing"];
     
@@ -83,9 +95,7 @@
         xOrigin += view.frame.size.width;
         
     }
-    
-    tagScrollView.scrollEnabled = tagPills.count > 0;
-    
+
     // position button
     addTagField.frame = CGRectMake(xOrigin + spacing,
                                     0,
@@ -180,7 +190,7 @@
                                                   target:self
                                                   action:@selector(tagPillTapped:)
                                           deletionAction:@selector(removeTagAction:)];
-    
+    pill.transform = [self transformForScrollViewContent];
     [tagPills addObject:pill];
     [tagScrollView addSubview:pill];
     
@@ -214,6 +224,7 @@
                                                                                action:@selector(tagCompletionPillTapped:)
                                                                        deletionAction:nil];
 
+                matchButton.transform = [self transformForScrollViewContent];
                 [autoCompleteScrollView addSubview:matchButton];
                 [fields addObject:matchButton];
                 
@@ -293,8 +304,8 @@
     
     dispatch_async(dispatch_get_main_queue(), ^{
         
-        if ([tagDelegate respondsToSelector:@selector(tagViewDidBeginEditing:)])
-            [tagDelegate tagViewDidBeginEditing:self];
+        if ([self->tagDelegate respondsToSelector:@selector(tagViewDidBeginEditing:)])
+            [self->tagDelegate tagViewDidBeginEditing:self];
         
         [self scrollEntryFieldToVisible:YES];
     });
@@ -302,21 +313,23 @@
     return YES;
 }
 
-- (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string {
-    
+- (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
+{
+    // Scenario #A: Space was pressed
     if ([string hasPrefix:@" "]) {
-        string = nil;
         [self processTextInFieldToTag];
         return NO;
-    } else if ([string rangeOfString:@" "].location != NSNotFound) {
-        
-        string = [string substringWithRange:NSMakeRange(0, [string rangeOfString:@" "].location)];
-        textField.text = [textField.text stringByReplacingCharactersInRange:range
-                                                                 withString:string];
-        return NO;
     }
-    
-    return YES;
+
+    // Scenario #B: New String was either typed or pasted
+    NSString *filteredString = [string substringUpToFirstSpace];
+    NSString *updatedString = [textField.text stringByReplacingCharactersInRange:range withString:filteredString];
+
+    if (updatedString.isValidTagName) {
+        textField.text = updatedString;
+    }
+
+    return NO;
 }
 
 - (void)tagEntryFieldDidChange:(SPTagEntryField *)tagTextField {
@@ -327,9 +340,9 @@
         [self scrollEntryFieldToVisible:YES];
     });
     
-    if ([tagDelegate respondsToSelector:@selector(tagViewDidChange:)])
+    if ([tagDelegate respondsToSelector:@selector(tagViewDidChange:)]) {
         [tagDelegate tagViewDidChange:self];
-    
+    }
     
     [self updateAutoCompletionsForString:tagTextField.text];
 
@@ -390,13 +403,11 @@
     [self setNeedsLayout];
 }
 
-
-- (void)scrollEntryFieldToVisible:(BOOL)animated {
-    
-    // make sure end of text field is visible in the scrollview
-    
-    if (_activeDeletionPill)
+- (void)scrollEntryFieldToVisible:(BOOL)animated
+{
+    if (_activeDeletionPill) {
         return;
+    }
     
     CGFloat spacing = [self.theme floatForKey:@"tagViewItemSpacing"];
     
@@ -407,7 +418,7 @@
                                          addTagField.frame.origin.x + addTagField.frame.size.width + 2 * spacing - tagScrollView.bounds.size.width),
                                      0);
         
-        [tagScrollView setContentOffset:offset animated:YES];
+        [tagScrollView setContentOffset:offset animated:animated];
     }
 }
 
@@ -480,7 +491,7 @@
             location.y < view.frame.size.height);
 }
 
-#pragma mark UIScrollViewDelegate methods
+#pragma mark - UIScrollViewDelegate methods
 
 // allow touches outside view
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -493,5 +504,38 @@
     return [super hitTest:point withEvent:event];
 }
 
+
+#pragma mark - RTL Support
+
+- (void)ensureRightToLeftSupportIsInitialized
+{
+    if (self.userInterfaceLayoutDirection != UIUserInterfaceLayoutDirectionRightToLeft) {
+        return;
+    }
+
+    /// Note:
+    /// In order to support RTL, we need our tags to be anchored to the right hand side of the screen (our origin of coordinates).
+    ///
+    /// In our current approach, we'll vertically flip the container TagView, and flip again all of its subviews: [Tag Pills, Autocompletion and New Tag Editor]
+    /// This will rendered a right-anchored Tags Editor, in just a few lines.
+    ///
+    self.transform = [self verticalFlipTransform];
+    addTagField.transform = [self verticalFlipTransform];
+    addTagField.textAlignment = NSTextAlignmentRight;
+}
+
+- (CGAffineTransform)verticalFlipTransform
+{
+    return CGAffineTransformScale(CGAffineTransformIdentity, -1, 1);
+}
+
+- (CGAffineTransform)transformForScrollViewContent
+{
+    if (self.userInterfaceLayoutDirection != UIUserInterfaceLayoutDirectionRightToLeft) {
+        return CGAffineTransformIdentity;
+    }
+
+    return self.verticalFlipTransform;
+}
 
 @end

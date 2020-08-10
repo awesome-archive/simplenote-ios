@@ -1,11 +1,3 @@
-//
-//  SPTracker.h
-//  Simplenote
-//
-//  Created by Jorge Leandro Perez on 3/17/15.
-//  Copyright (c) 2015 Automattic. All rights reserved.
-//
-
 #import <Foundation/Foundation.h>
 
 
@@ -21,7 +13,12 @@
 + (void)refreshMetadataWithEmail:(NSString *)email;
 + (void)refreshMetadataForAnonymousUser;
 
+#pragma mark - Application State
++ (void)trackApplicationOpened;
++ (void)trackApplicationClosed;
+
 #pragma mark - Note Editor
++ (void)trackEditorChecklistInserted;
 + (void)trackEditorNoteCreated;
 + (void)trackEditorNoteDeleted;
 + (void)trackEditorNoteRestored;
@@ -49,12 +46,14 @@
 + (void)trackListTrashEmptied;
 + (void)trackListNotesSearched;
 + (void)trackListTagViewed;
++ (void)trackListUntaggedViewed;
 + (void)trackTrashViewed;
 
 #pragma mark - Preferences
 + (void)trackSettingsPinlockEnabled:(BOOL)isOn;
 + (void)trackSettingsListCondensedEnabled:(BOOL)isOn;
-+ (void)trackSettingsAlphabeticalSortEnabled:(BOOL)isOn;
++ (void)trackSettingsNoteListSortMode:(NSString *)description;
++ (void)trackSettingsSearchSortMode:(NSString *)description;
 + (void)trackSettingsThemeUpdated:(NSString *)themeName;
 
 #pragma mark - Sidebar
@@ -89,5 +88,16 @@
 + (void)trackUserAccountCreated;
 + (void)trackUserSignedIn;
 + (void)trackUserSignedOut;
+
+#pragma mark - Keychain Migration
++ (void)trackKeychainMigrationSucceeded;
++ (void)trackKeychainMigrationFailed;
++ (void)trackKeychainFailsafeSucceeded;
++ (void)trackKeychainFailsafeFailed;
+
+#pragma mark - WP.com Sign In
++ (void)trackWPCCButtonPressed;
++ (void)trackWPCCLoginSucceeded;
++ (void)trackWPCCLoginFailed;
 
 @end

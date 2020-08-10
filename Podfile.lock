@@ -1,92 +1,88 @@
 PODS:
-  - 1PasswordExtension (1.1.2)
-  - Automattic-Tracks-iOS (0.1.0):
-    - CocoaLumberjack (~> 2.2.0)
-    - Reachability (~> 3.1)
-    - UIDeviceIdentifier (~> 0.4)
-  - CocoaLumberjack (2.2.0):
-    - CocoaLumberjack/Default (= 2.2.0)
-    - CocoaLumberjack/Extensions (= 2.2.0)
-  - CocoaLumberjack/Core (2.2.0)
-  - CocoaLumberjack/Default (2.2.0):
-    - CocoaLumberjack/Core
-  - CocoaLumberjack/Extensions (2.2.0):
-    - CocoaLumberjack/Default
-  - Crashlytics (3.7.0):
-    - Fabric (~> 1.6.3)
-  - Fabric (1.6.7)
-  - GoogleAnalytics (3.14.0)
-  - HockeySDK (3.8.6):
-    - HockeySDK/AllFeaturesLib (= 3.8.6)
-  - HockeySDK/AllFeaturesLib (3.8.6)
-  - hoedown (3.0.3):
-    - hoedown/standard (= 3.0.3)
-  - hoedown/standard (3.0.3)
+  - 1PasswordExtension (1.8.6)
+  - AppCenter (2.3.0):
+    - AppCenter/Analytics (= 2.3.0)
+    - AppCenter/Crashes (= 2.3.0)
+  - AppCenter/Analytics (2.3.0):
+    - AppCenter/Core
+  - AppCenter/Core (2.3.0)
+  - AppCenter/Crashes (2.3.0):
+    - AppCenter/Core
+  - AppCenter/Distribute (2.3.0):
+    - AppCenter/Core
+  - Automattic-Tracks-iOS (0.4.4):
+    - CocoaLumberjack (~> 3)
+    - Reachability (~> 3)
+    - Sentry (~> 4)
+    - Sodium (~> 0.8.0)
+    - UIDeviceIdentifier (~> 1)
+  - CocoaLumberjack (3.6.1):
+    - CocoaLumberjack/Core (= 3.6.1)
+  - CocoaLumberjack/Core (3.6.1)
+  - Gridicons (0.19)
   - Reachability (3.2)
-  - Simperium (0.8.17):
-    - Simperium/DiffMatchPach (= 0.8.17)
-    - Simperium/JRSwizzle (= 0.8.17)
-    - Simperium/SocketTrust (= 0.8.17)
-    - Simperium/SPReachability (= 0.8.17)
-    - Simperium/SSKeychain (= 0.8.17)
-  - Simperium/DiffMatchPach (0.8.17)
-  - Simperium/JRSwizzle (0.8.17)
-  - Simperium/SocketTrust (0.8.17)
-  - Simperium/SPReachability (0.8.17)
-  - Simperium/SSKeychain (0.8.17)
-  - SSKeychain (1.2.2)
-  - SVProgressHUD (1.1.2)
-  - UIDeviceIdentifier (0.5.0)
-  - WordPress-AppbotX (1.0.6)
+  - SAMKeychain (1.5.2)
+  - Sentry (4.5.0):
+    - Sentry/Core (= 4.5.0)
+  - Sentry/Core (4.5.0)
+  - Simperium (0.8.27):
+    - Simperium/DiffMatchPach (= 0.8.27)
+    - Simperium/JRSwizzle (= 0.8.27)
+    - Simperium/SocketTrust (= 0.8.27)
+    - Simperium/SPReachability (= 0.8.27)
+    - Simperium/SSKeychain (= 0.8.27)
+  - Simperium/DiffMatchPach (0.8.27)
+  - Simperium/JRSwizzle (0.8.27)
+  - Simperium/SocketTrust (0.8.27)
+  - Simperium/SPReachability (0.8.27)
+  - Simperium/SSKeychain (0.8.27)
+  - Sodium (0.8.0)
+  - UIDeviceIdentifier (1.4.0)
   - WordPress-Ratings-iOS (0.0.2)
+  - ZIPFoundation (0.9.11)
 
 DEPENDENCIES:
-  - 1PasswordExtension (= 1.1.2)
-  - Automattic-Tracks-iOS (from `https://github.com/Automattic/Automattic-Tracks-iOS.git`, tag `0.1.0`)
-  - Crashlytics (= 3.7.0)
-  - Fabric (= 1.6.7)
-  - GoogleAnalytics (= 3.14.0)
-  - HockeySDK (~> 3.8.0)
-  - hoedown (~> 3.0.3)
-  - Simperium (= 0.8.17)
-  - SSKeychain (= 1.2.2)
-  - SVProgressHUD (= 1.1.2)
-  - WordPress-AppbotX (from `https://github.com/wordpress-mobile/appbotx.git`, commit `479d05f7d6b963c9b44040e6ea9f190e8bd9a47a`)
+  - 1PasswordExtension (= 1.8.6)
+  - AppCenter (~> 2.3.0)
+  - AppCenter/Distribute (~> 2.3.0)
+  - Automattic-Tracks-iOS (~> 0.4)
+  - Gridicons (~> 0.18)
+  - SAMKeychain (= 1.5.2)
+  - Simperium (~> 0.8.27)
   - WordPress-Ratings-iOS (= 0.0.2)
+  - ZIPFoundation (~> 0.9.9)
 
-EXTERNAL SOURCES:
-  Automattic-Tracks-iOS:
-    :git: https://github.com/Automattic/Automattic-Tracks-iOS.git
-    :tag: 0.1.0
-  WordPress-AppbotX:
-    :commit: 479d05f7d6b963c9b44040e6ea9f190e8bd9a47a
-    :git: https://github.com/wordpress-mobile/appbotx.git
-
-CHECKOUT OPTIONS:
-  Automattic-Tracks-iOS:
-    :git: https://github.com/Automattic/Automattic-Tracks-iOS.git
-    :tag: 0.1.0
-  WordPress-AppbotX:
-    :commit: 479d05f7d6b963c9b44040e6ea9f190e8bd9a47a
-    :git: https://github.com/wordpress-mobile/appbotx.git
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - 1PasswordExtension
+    - AppCenter
+    - Automattic-Tracks-iOS
+    - CocoaLumberjack
+    - Gridicons
+    - Reachability
+    - SAMKeychain
+    - Sentry
+    - Simperium
+    - Sodium
+    - UIDeviceIdentifier
+    - WordPress-Ratings-iOS
+    - ZIPFoundation
 
 SPEC CHECKSUMS:
-  1PasswordExtension: 66365c1e1264a83edec6c84c6eb2df41b50a70d3
-  Automattic-Tracks-iOS: 5b76290a74355cc8be18e5177b4af58774a63a46
-  CocoaLumberjack: 17fe8581f84914d5d7e6360f7c70022b173c3ae0
-  Crashlytics: c3a2333dea9e2733d2777f730910321fc9e25c0d
-  Fabric: caf7580c725e64db144f610ac65cd60956911dc7
-  GoogleAnalytics: 9be1afdb8deeac4bb5f13ca7f7d3b9db2a1f43dc
-  HockeySDK: ab68303eec6680f6b539de65d747742dd276e934
-  hoedown: c1327bbbc96d269595ed86bf97f1d09867ec7529
+  1PasswordExtension: f97cc80ae58053c331b2b6dc8843ba7103b33794
+  AppCenter: 9784d2fc998c9bd0b8fbaf4fb9ed69526d12ce1a
+  Automattic-Tracks-iOS: dbe6301bebdc1e444972475bae19299491702cef
+  CocoaLumberjack: b17ae15142558d08bbacf69775fa10c4abbebcc9
+  Gridicons: dc92efbe5fd60111d2e8ea051d84a60cca552abc
   Reachability: 33e18b67625424e47b6cde6d202dce689ad7af96
-  Simperium: 0111b16b6d72bc598a99e244ef87025ae433b27e
-  SSKeychain: 88767e903ee8d274ed380e364d96b7a101235286
-  SVProgressHUD: 3afb875b9eb23acd1bed9b82495695c68621a8b2
-  UIDeviceIdentifier: a959a6d4f51036b4180dd31fb26483a820f1cc46
-  WordPress-AppbotX: b5abc0ba45e3da5827f84e9f346c963180f1b545
-  WordPress-Ratings-iOS: b04108f7a45867844ba47a240bb6295ca747eebf
+  SAMKeychain: 1865333198217411f35327e8da61b43de79b635b
+  Sentry: ab6c209f23700d1460691dbc90e19ed0a05d496b
+  Simperium: 2d56560eb9ca6ceb639ebbdf824acaed96a1916b
+  Sodium: 63c0ca312a932e6da481689537d4b35568841bdc
+  UIDeviceIdentifier: 44f805037d21b94394821828f4fcaba34b38c2d0
+  WordPress-Ratings-iOS: 9f83dbba6e728c5121b1fd21b5683cf2fd120646
+  ZIPFoundation: b1f0de4eed33e74a676f76e12559ab6b75990197
 
-PODFILE CHECKSUM: 2d182e50997cbe1e2b8976426df9b496171dd193
+PODFILE CHECKSUM: e9b4b44c3848af6dc560fafb1ccff44248b3d40d
 
-COCOAPODS: 1.0.1
+COCOAPODS: 1.7.5

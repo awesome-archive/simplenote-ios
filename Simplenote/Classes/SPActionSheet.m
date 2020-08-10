@@ -4,6 +4,8 @@
 #import "VSThemeManager.h"
 #import "SPButton.h"
 #import "SPSideBySideView.h"
+#import "Simplenote-Swift.h"
+
 
 #pragma mark - Implementation
 
@@ -68,7 +70,7 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
 
 #pragma mark - View Lifecycle
 
-- (id)initWithFrame:(CGRect)frame
+- (instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
     if (self) {
@@ -119,7 +121,7 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
     
     NSMutableArray *labelArray = [[NSMutableArray alloc] initWithCapacity:stringArray.count];
 
-    UIFont *font = [self.theme fontForKey:@"actionSheetButtonFont"];
+    UIFont *font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     
     CGFloat labelPadding = [self.theme floatForKey:@"actionSheetLabelPadding"];
     
@@ -127,13 +129,13 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
         CGSize textSize = [string sizeWithAttributes:@{NSFontAttributeName : font}];
         SPButton *textButton = [[SPButton alloc] initWithFrame:CGRectMake(0, 0, textSize.width + labelPadding, [self.theme floatForKey:@"actionSheetButtonHeight"])];
 
-        textButton.backgroundHighlightColor = [self.theme colorForKey:@"actionSheetButtonBackgroundHighlightColor"];
+        textButton.backgroundHighlightColor = [UIColor simplenoteDividerColor];
         textButton.titleLabel.font = font;
         textButton.titleLabel.textAlignment = NSTextAlignmentCenter;
-        textButton.titleLabel.textColor = [self.theme colorForKey:@"actionSheetFontColor"];
+        textButton.titleLabel.textColor = [UIColor simplenoteTextColor];
         [textButton setTitle:string forState:UIControlStateNormal];
         
-        [textButton setTitleColor:[self.theme colorForKey:@"actionSheetButtonFontColor"]
+        [textButton setTitleColor:[UIColor simplenoteTintColor]
                          forState:UIControlStateNormal];
 
         [textButton addTarget:self
@@ -191,8 +193,10 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
     UILabel *titleLabel;
     
     if (message) {
-        NSDictionary *titleAttributes = @{NSFontAttributeName: [self.theme fontForKey:@"actionSheetFont"],
-                                          NSForegroundColorAttributeName: [self.theme colorForKey:@"actionSheetFontColor"]};
+        NSDictionary *titleAttributes = @{
+            NSFontAttributeName: [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline],
+            NSForegroundColorAttributeName: [UIColor simplenoteTextColor]
+        };
         NSAttributedString *titleAttributedString = [[NSAttributedString alloc] initWithString:message
                                                                                     attributes:titleAttributes];
         titleSize = [titleAttributedString boundingRectWithSize:CGSizeMake([self.theme floatForKey:@"actionSheetMaxTitleWidth"], [self.theme floatForKey:@"actionSheetMaxTitleHeight"])
@@ -294,11 +298,10 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
             
             dividerRect.origin.y -= [self.theme floatForKey:@"actionSheetBoxPadding"] / 2.0;;
             dividerRect.size.width += 2 * motionEffectDistance;
-            
-            CALayer *divider = [[CALayer alloc] init];
-            divider.backgroundColor = [self.theme colorForKey:@"actionSheetDividerColor"].CGColor;
-            divider.frame = dividerRect;
-            [container.layer addSublayer:divider];
+
+            UIView *divider = [[UIView alloc] initWithFrame:dividerRect];
+            divider.backgroundColor = [UIColor simplenoteDividerColor];
+            [container addSubview:divider];
         }
         
         i++;
@@ -317,7 +320,7 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
     
     container.frame = CGRectMake(0, 0, totalWidth, totalHeight);
     
-    container.backgroundColor = [[self.theme colorForKey:@"actionSheetBackgroundColor"] colorWithAlphaComponent:0.97];
+    container.backgroundColor = [UIColor simplenoteTableViewBackgroundColor];
     
     self.subviewsArray = viewArray;
     
@@ -356,8 +359,8 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
                          
                      } completion:^(BOOL finished) {
                          
-                         if (delegate && [delegate respondsToSelector:@selector(actionSheetDidShow:)])
-                             [delegate actionSheetDidShow:self];
+                         if (self->delegate && [self->delegate respondsToSelector:@selector(actionSheetDidShow:)])
+                             [self->delegate actionSheetDidShow:self];
                      }];
     
 
@@ -412,6 +415,10 @@ static CGFloat SPActionSheetCancelButtonIndexNone = -1;
                                      boxFrame.origin.y + padding,
                                      contentWidth + 2 * moveDistance,
                                      contentHeight + moveDistance);
+
+    contentFrame.origin.y -= view.safeAreaInsets.bottom;
+    contentFrame.size.height += view.safeAreaInsets.bottom;
+
     contentView.frame = contentFrame;
     contentView.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth;
     

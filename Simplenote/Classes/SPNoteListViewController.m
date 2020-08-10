@@ -1,150 +1,111 @@
-//
-//  SPNoteListViewController.m
-//  Simplenote
-//
-//  Created by Tom Witkin on 7/3/13.
-//  Copyright (c) 2013 Automattic. All rights reserved.
-//
-
 #import "SPNoteListViewController.h"
 #import "SPOptionsViewController.h"
 #import "SPNavigationController.h"
 #import "SPNoteEditorViewController.h"
 
 #import "SPAppDelegate.h"
-#import "SPTableViewCell.h"
 #import "SPTransitionController.h"
 #import "SPTextView.h"
-#import "SPEmptyListView.h"
 #import "SPActivityView.h"
 #import "SPObjectManager.h"
 #import "SPTracker.h"
 #import "SPRatingsHelper.h"
-#import "SPRatingsPromptView.h"
 
-#import "SPAnimations.h"
 #import "SPConstants.h"
 #import "Note.h"
 
-#import "NSAttributedString+Styling.h"
+#import "NSMutableAttributedString+Styling.h"
 #import "NSString+Search.h"
 #import "NSTextStorage+Highlight.h"
 #import "UIBarButtonItem+Images.h"
 #import "UIDevice+Extensions.h"
-#import "UIView+Subviews.h"
-#import "UIImage+Colorization.h"
+#import "VSThemeManager.h"
+
+#import <StoreKit/StoreKit.h>
+#import <Simperium/Simperium.h>
 #import "Simplenote-Swift.h"
 
-#import <Simperium/Simperium.h>
-@import WordPress_AppbotX;
 
-#import "VSThemeManager.h"
-#import "VSTheme+Simplenote.h"
+@interface SPNoteListViewController () <UITextFieldDelegate,
+                                        SearchDisplayControllerDelegate,
+                                        SearchControllerPresentationContextProvider,
+                                        SPRatingsPromptDelegate>
 
+@property (nonatomic, strong) NSTimer                               *searchTimer;
 
-@interface SPNoteListViewController () <ABXPromptViewDelegate, ABXFeedbackViewControllerDelegate>
+@property (nonatomic, strong) SPBlurEffectView                      *navigationBarBackground;
+@property (nonatomic, strong) UIBarButtonItem                       *addButton;
+@property (nonatomic, strong) UIBarButtonItem                       *sidebarButton;
+@property (nonatomic, strong) UIBarButtonItem                       *emptyTrashButton;
 
-@property (nonatomic, strong) SPTransitionController    *transitionController;
-@property (nonatomic, assign) CGFloat                   keyboardHeight;
+@property (nonatomic, strong) SearchDisplayController               *searchController;
+@property (nonatomic, strong) UIActivityIndicatorView               *activityIndicator;
 
-@property (nonatomic, strong) SPTableViewCell           *heightCalculationCell;
-@property (nonatomic, strong) UIImage                   *panImageDelete;
-@property (nonatomic, strong) UIImage                   *panImageRestore;
-@property (nonatomic, strong) UIImage                   *pinImage;
-@property (nonatomic, strong) UIImage                   *pinSearchImage;
+@property (nonatomic, strong) SPTransitionController                *transitionController;
+
+@property (nonatomic, assign) BOOL                                  bTitleViewAnimating;
+@property (nonatomic, assign) BOOL                                  bResetTitleView;
+@property (nonatomic, assign) BOOL                                  isIndexingNotes;
 
 @end
 
 @implementation SPNoteListViewController
-@synthesize fetchedResultsController=__fetchedResultsController;
 
-- (void)dealloc
-{
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-}
-
-- (id)initWithSidebarViewController:(SPSidebarViewController *)sidebarViewController {
+- (instancetype)init {
     
-    self = [super initWithSidebarViewController:sidebarViewController];
+    self = [super init];
     if (self) {
-        
-        self.tableView = [[UITableView alloc] init];
-        self.tableView.frame = self.rootView.bounds;
-        self.tableView.delegate = self;
-        self.tableView.dataSource = self;
-        self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        [self.rootView addSubview:_tableView];
+        [self configureImpactGenerator];
+        [self configureNavigationButtons];
+        [self configureNavigationBarBackground];
+        [self configureResultsController];
+        [self configurePlaceholderView];
+        [self configureTableView];
+        [self configureSearchController];
+        [self configureSearchStackView];
+        [self configureSortBar];
+        [self configureRootView];
+        [self updateTableViewMetrics];
+        [self startListeningToNotifications];
+        [self startDisplayingEntities];
 
-        cellIdentifier = [[VSThemeManager sharedManager] theme].name;
-        [self.tableView registerClass:[SPTableViewCell class] forCellReuseIdentifier:cellIdentifier];
-        self.tableView.alwaysBounceVertical = YES;
-        
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(updateRowHeight:)
-                                                     name:SPCondensedNoteListPreferenceChangedNotification
-                                                   object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(updateSortOrder:)
-                                                     name:SPAlphabeticalSortPreferenceChangedNotification
-                                                   object:nil];
-        
-        // voiceover status is tracked because the custom animated transition
-        // is not used when enabled
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(didReceiveVoiceoverNotification:)
-                                                     name:UIAccessibilityVoiceOverStatusChanged
-                                                   object:nil];
-        
-        // Register for keyboard notifications
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(keyboardWillShow:)
-                                                     name:UIKeyboardWillShowNotification
-                                                   object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(keyboardWillHide:)
-                                                     name:UIKeyboardWillHideNotification
-                                                   object:nil];
-        
-        self.tableView.backgroundColor = [self.theme colorForKey:@"backgroundColor"];
-        self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
-        [self updateRowHeight:nil];
-        
-        [self updateNavigationBar];
-        
-        _panImageDelete = [[UIImage imageNamed:@"icon_cell_pan_trash"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-        _panImageRestore = [[UIImage imageNamed:@"icon_cell_pan_restore"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-        
-        // add empty list view
-        _emptyListView = [[SPEmptyListView alloc] initWithImage:[UIImage imageNamed:@"logo_login"]
-                                                       withText:nil];
-        
-        _emptyListView.frame = self.view.bounds;
-        _emptyListView.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
-        _emptyListView.userInteractionEnabled = false;
-
-        NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
-        [nc addObserver:self selector:@selector(themeDidChange) name:VSThemeManagerThemeDidChangeNotification object:nil];
-        
+        [self registerForPeekAndPop];
+        [self refreshStyle];
         [self update];
+        self.mustScrollToFirstRow = YES;
     }
     
     return self;
 }
 
-- (void)viewWillAppear:(BOOL)animated {
-    
-    [super viewWillAppear:animated];
-    searchBarContainer.frame = CGRectMake(0, 0, self.view.frame.size.width, 44);
+
+#pragma mark - View Lifecycle
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    [self refreshTableViewTopInsets];
+    [self updateTableHeaderSize];
+    [self ensureFirstRowIsVisibleIfNeeded];
 }
 
-- (void)viewDidAppear:(BOOL)animated
+- (void)willMoveToParentViewController:(UIViewController *)parent {
+    [super willMoveToParentViewController:parent];
+    [self ensureFirstRowIsVisible];
+    [self ensureTransitionControllerIsInitialized];
+}
+
+- (void)viewWillAppear:(BOOL)animated
 {
+    [super viewWillAppear:animated];
+    [self.searchController hideNavigationBarIfNecessary];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     [self showRatingViewIfNeeded];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
-    
     [super viewWillDisappear:animated];
     
     if (![SPAppDelegate sharedDelegate].simperium.user) {
@@ -152,165 +113,197 @@
     }
 }
 
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
 
-- (VSTheme *)theme {
-    
-    return [[VSThemeManager sharedManager] theme];
-}
-
-- (void)themeDidChange {
-    // Reset the pin image so it gets reskinned
-    _pinImage = nil;
-
-    // Refresh the containerView's backgroundColor
-    self.view.backgroundColor = [self.theme colorForKey:@"backgroundColor"];
-    
-    // Use a new cellIdentifier so cells redraw with new theme
-    cellIdentifier = [[VSThemeManager sharedManager] theme].name;
-    self.tableView.backgroundColor = [self.theme colorForKey:@"backgroundColor"];
-    [self.tableView reloadData];
-
-    // Restyle the TransitionController
-    if (self.transitionController) {
-        [self.transitionController applyStyle];
-    }
-
-    // Restyle the search bar
-    [self styleSearchBar];
-}
-
-- (void)styleSearchBar {
-    UIImage *background = [[self.theme imageForKey:@"searchBarBackgroundImage"] resizableImageWithCapInsets:UIEdgeInsetsMake(5, 6, 5, 5)];
-    [searchBar setSearchFieldBackgroundImage:background
-                                    forState:UIControlStateNormal];
-    searchBarContainer.backgroundColor = [UIColor clearColor];
-
-    [searchBar setImage:[[UIImage imageNamed:@"search_icon"] imageWithOverlayColor:[self.theme colorForKey:@"searchBarImageColor"]]
-       forSearchBarIcon:UISearchBarIconSearch
-                  state:UIControlStateNormal];
-
-    // Apply font to search field by traversing subviews
-    NSArray *searchBarSubviews = [searchBar subviewsRespondingToSelector:@selector(setFont:)];
-
-    for (UIView *subview in searchBarSubviews) {
-        if ([subview isKindOfClass:[UITextField class]] == false) {
-            continue;
+    if (@available(iOS 13.0, *)) {
+        if ([previousTraitCollection hasDifferentColorAppearanceComparedToTraitCollection:self.traitCollection] == false) {
+            return;
         }
-        
-        [(UITextField *)subview setFont:[self.theme fontForKey:@"searchBarFont"]];
-        [(UITextField *)subview setTextColor:[self.theme colorForKey:@"searchBarFontColor"]];
-        [(UITextField *)subview setKeyboardAppearance:(self.theme.isDark ?
-                                                       UIKeyboardAppearanceDark : UIKeyboardAppearanceDefault)];
+
+        [self themeDidChange];
     }
 }
 
-- (void)updateRowHeight:(id)sender {
-    
-    BOOL condensedNoteList = [[NSUserDefaults standardUserDefaults] boolForKey:SPCondensedNoteListPref];
-    
-    CGFloat verticalPadding = [self.theme floatForKey:@"noteVerticalPadding"];
-    CGFloat topTextViewPadding = verticalPadding;
-    
-    CGFloat numberLines = condensedNoteList ? 1.0 : 3.0;
-    CGFloat lineHeight = [@"Tommy" sizeWithAttributes:@{NSFontAttributeName: [self.theme fontWithSystemSizeForKey:@"noteHeadlineFont"]}].height;
-    
-    self.tableView.rowHeight = ceilf(2.5 * verticalPadding + 2 * topTextViewPadding + lineHeight * numberLines);
-    
+
+- (void)ensureTransitionControllerIsInitialized
+{
+    if (_transitionController != nil) {
+        return;
+    }
+
+    NSAssert(self.navigationController != nil, @"we should be already living within a navigationController before this method can be called");
+    self.transitionController = [[SPTransitionController alloc] initWithNavigationController:self.navigationController];
+    self.navigationController.delegate = self.transitionController;
+}
+
+- (void)updateTableViewMetrics
+{
+    self.noteRowHeight = SPNoteTableViewCell.cellHeight;
+    self.tagRowHeight = SPTagTableViewCell.cellHeight;
+    self.tableView.separatorInset = SPNoteTableViewCell.separatorInsets;
     [self.tableView reloadData];
 }
 
-- (void)updateSortOrder:(id)sender {
+- (void)updateTableHeaderSize {
+    UIView *headerView = self.tableView.tableHeaderView;
+    if (!headerView) {
+        return;
+    }
 
+    // Old school workaround. tableHeaderView isn't really Autolayout friendly.
+    [headerView adjustSizeForCompressedLayout];
+    self.tableView.tableHeaderView = headerView;
+}
+
+
+#pragma mark - Overridden Properties
+
+- (UIStatusBarStyle)preferredStatusBarStyle {
+    // In iOS <13, whenever the navigationBar is hidden, the system will query the top VC for its preferred bar style.
+    // Nuke this the second iOS 13 is the deployment target, which will probably be around 2021?
+    return self.navigationController.preferredStatusBarStyle;
+}
+
+
+#pragma mark - Dynamic Properties
+
+- (UISearchBar *)searchBar {
+    return _searchController.searchBar;
+}
+
+- (UIActivityIndicatorView *)activityIndicator {
+    if (_activityIndicator == nil) {
+        UIActivityIndicatorViewStyle style = SPUserInterface.isDark ? UIActivityIndicatorViewStyleWhite : UIActivityIndicatorViewStyleGray;
+        _activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:style];
+    }
+
+    return _activityIndicator;
+}
+
+
+#pragma mark - Notifications
+
+- (void)startListeningToNotifications {
+
+    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+
+    // Dynamic Fonts!
+    [nc addObserver:self selector:@selector(contentSizeWasUpdated:) name:UIContentSizeCategoryDidChangeNotification object:nil];
+
+    // Condensed Notes
+    [nc addObserver:self selector:@selector(condensedPreferenceWasUpdated:) name:SPCondensedNoteListPreferenceChangedNotification object:nil];
+    [nc addObserver:self selector:@selector(sortModePreferenceWasUpdated:) name:SPNotesListSortModeChangedNotification object:nil];
+    [nc addObserver:self selector:@selector(sortModePreferenceWasUpdated:) name:SPSearchSortModeChangedNotification object:nil];
+
+    // Register for keyboard notifications
+    [nc addObserver:self selector:@selector(keyboardWillChangeFrame:) name:UIKeyboardWillChangeFrameNotification object:nil];
+
+    // Themes
+    [nc addObserver:self selector:@selector(themeDidChange) name:VSThemeManagerThemeDidChangeNotification object:nil];
+}
+
+- (void)condensedPreferenceWasUpdated:(id)sender
+{
+    [self updateTableViewMetrics];
+}
+
+- (void)contentSizeWasUpdated:(id)sender
+{
+    [self updateTableViewMetrics];
+}
+
+- (void)sortModePreferenceWasUpdated:(id)sender
+{
     [self update];
 }
 
+- (void)themeDidChange {
+    [self refreshStyle];
+}
+
+- (void)refreshStyle {
+    // Refresh the containerView's backgroundColor
+    self.view.backgroundColor = [UIColor simplenoteBackgroundColor];
+
+    // Refresh the Table's UI
+    [self.tableView applySimplenotePlainStyle];
+    [self.tableView reloadData];
+
+    // Refresh the SearchBar's UI
+    [self.searchBar applySimplenoteStyle];
+}
+
 - (void)updateNavigationBar {
-    
-    if (!addButton) {
-        addButton = [UIBarButtonItem barButtonWithImage:[UIImage imageNamed:@"button_new"]
-                     imageAlignment:UIBarButtonImageAlignmentRight
-                                                 target:self
-                                               selector:@selector(addButtonAction:)];
-        addButton.accessibilityLabel = NSLocalizedString(@"New note", nil);
-        addButton.accessibilityHint =NSLocalizedString(@"Create a new note", nil);
-    }
-    
-    
-    if (!sidebarButton) {
-        sidebarButton = [UIBarButtonItem barButtonContainingCustomViewWithImage:[UIImage imageNamed:@"back_chevron"]
-                                              imageAlignment:UIBarButtonImageAlignmentLeft
-                                                 target:self
-                                               selector:@selector(sidebarButtonAction:)];
-        sidebarButton.isAccessibilityElement = YES;
-        sidebarButton.accessibilityLabel = NSLocalizedString(@"Sidebar", @"UI region to the left of the note list which shows all of a users tags");
-        sidebarButton.accessibilityHint = NSLocalizedString(@"Toggle tag sidebar", @"Accessibility hint used to show or hide the sidebar");
-        
-        // this view is the view rotates when the tags list is shown
-        sideBarButtonTransformView =(UIView *)[[(UIButton *)sidebarButton.customView subviews] firstObject];
-    }
-    
-    if (!emptyTrashButton) {
-        emptyTrashButton = [[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"Empty", @"Verb - empty causes all notes to be removed permenently from the trash")
-                                                            style:UIBarButtonItemStylePlain
-                                                           target:self
-                                                           action:@selector(emptyAction:)];
-        emptyTrashButton.accessibilityLabel = NSLocalizedString(@"Empty trash", @"Remove all notes from the trash");
-        emptyTrashButton.accessibilityHint = NSLocalizedString(@"Remove all notes from trash", nil);
-        
-        UIOffset titleOffset = [UIDevice isPad] ? UIOffsetMake(7, 0) : UIOffsetZero;
-        [emptyTrashButton setTitlePositionAdjustment:titleOffset forBarMetrics:UIBarMetricsDefault];
-    }
-    
-        
-    if (!searchBar) {
-        
-        CGFloat const kSearchBarHeight = 44.0;
-        
-        searchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0,
-                                                                  0,
-                                                                  self.view.frame.size.width,
-                                                                  kSearchBarHeight)];
-        searchBarContainer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, kSearchBarHeight)];
+    UIBarButtonItem *rightButton = (self.isDeletedFilterActive) ? self.emptyTrashButton : self.addButton;
 
-        searchBarContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        searchBarContainer.clipsToBounds = NO;
-        searchBar.center = searchBarContainer.center;
-        
-        searchBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        searchBar.searchTextPositionAdjustment = UIOffsetMake(5, 1);
-        searchBar.searchBarStyle = UISearchBarStyleMinimal;
+    [self.navigationItem setRightBarButtonItem:rightButton animated:YES];
+    [self.navigationItem setLeftBarButtonItem:self.sidebarButton animated:YES];
+}
 
-        [self styleSearchBar];
 
-        searchBar.delegate = self;
-        [searchBarContainer addSubview:searchBar];
+#pragma mark - Interface Initialization
 
-    }
-    
-    if (bSearching) {
-        
-        [self.navigationItem setRightBarButtonItem:nil animated:YES];
-        [self.navigationItem setLeftBarButtonItem:nil animated:YES];
-        
-    } else if (tagFilterType == SPTagFilterTypeDeleted) {
-        
-        [self.navigationItem setRightBarButtonItem:emptyTrashButton animated:YES];
-        [self.navigationItem setLeftBarButtonItem:sidebarButton animated:YES];
-        
-    }else {
+- (void)configureNavigationButtons {
+    NSAssert(_addButton == nil, @"_addButton is already initialized!");
+    NSAssert(_sidebarButton == nil, @"_sidebarButton is already initialized!");
+    NSAssert(_emptyTrashButton == nil, @"_emptyTrashButton is already initialized!");
 
-        [self.navigationItem setRightBarButtonItem:addButton animated:YES];
-        [self.navigationItem setLeftBarButtonItem:sidebarButton animated:YES];
+    /// Button: New Note
+    ///
+    self.addButton = [UIBarButtonItem barButtonWithImage:[UIImage imageWithName:UIImageNameNewNote]
+                                          imageAlignment:UIBarButtonImageAlignmentRight
+                                                  target:self
+                                                selector:@selector(addButtonAction:)];
+    self.addButton.isAccessibilityElement = YES;
+    self.addButton.accessibilityLabel = NSLocalizedString(@"New note", nil);
+    self.addButton.accessibilityHint = NSLocalizedString(@"Create a new note", nil);
 
-    }
-    
-    self.navigationItem.titleView = searchBarContainer;
-    self.navigationItem.titleView.hidden = NO;
-    
-    // Title must be set to an empty string because we're using a custom titleView,
-    // and otherwise we get odd navigation bar behaviour when pushing view controllers
-    // onto the navigation controller after the notes editor.
-    self.navigationItem.title = @"";
+    /// Button: Display Tags
+    ///
+    self.sidebarButton = [UIBarButtonItem barButtonContainingCustomViewWithImage:[UIImage imageWithName:UIImageNameMenu]
+                                                                  imageAlignment:UIBarButtonImageAlignmentLeft
+                                                                          target:self
+                                                                        selector:@selector(sidebarButtonAction:)];
+    self.sidebarButton.isAccessibilityElement = YES;
+    self.sidebarButton.accessibilityIdentifier = @"menu";
+    self.sidebarButton.accessibilityLabel = NSLocalizedString(@"Sidebar", @"UI region to the left of the note list which shows all of a users tags");
+    self.sidebarButton.accessibilityHint = NSLocalizedString(@"Toggle tag sidebar", @"Accessibility hint used to show or hide the sidebar");
+
+    /// Button: Empty Trash
+    ///
+    self.emptyTrashButton = [[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"Empty", @"Verb - empty causes all notes to be removed permenently from the trash")
+                                                             style:UIBarButtonItemStylePlain
+                                                            target:self
+                                                            action:@selector(emptyAction:)];
+
+    self.emptyTrashButton.isAccessibilityElement = YES;
+    self.emptyTrashButton.accessibilityLabel = NSLocalizedString(@"Empty trash", @"Remove all notes from the trash");
+    self.emptyTrashButton.accessibilityHint = NSLocalizedString(@"Remove all notes from trash", nil);
+}
+
+- (void)configureNavigationBarBackground {
+    NSAssert(_navigationBarBackground == nil, @"_navigationBarBackground is already initialized!");
+
+    // What's going on:
+    //  -   SPNavigationController.displaysBlurEffect makes sense when every VC in the hierarchy displays blur.
+    //  -   Since our UISearchBar lives in our View Hierarchy, the blur cannot be dealt with by the NavigationBar.
+    //  -   Therefore we must inject the blur on a VC per VC basis.
+    //
+    self.navigationBarBackground = [SPBlurEffectView navigationBarBlurView];
+}
+
+- (void)configureSearchController {
+    NSAssert(_searchController == nil, @"_searchController is already initialized!");
+
+    self.searchController = [SearchDisplayController new];
+    self.searchController.delegate = self;
+    self.searchController.presenter = self;
+
+    self.searchBar.placeholder = NSLocalizedString(@"Search notes or tags", @"SearchBar's Placeholder Text");
+    [self.searchBar applySimplenoteStyle];
+
+    self.searchController.searchBar.accessibilityIdentifier = @"search-bar";
 }
 
 
@@ -329,262 +322,129 @@
 - (void)sidebarButtonAction:(id)sender {
     
     [self.tableView setEditing:NO];
-    bShouldShowSidePanel = YES;
-    [self toggleSidePanel:nil];
+
+    [SPTracker trackSidebarButtonPresed];
+    [[[SPAppDelegate sharedDelegate] sidebarViewController] toggleSidebar];
 }
 
-- (void)cancelSearchButtonAction:(id)sender {
-    
-    [self endSearching];
-}
 
-- (void)endSearching {
-    
-    bSearching = NO;
-    
-    searchBar.text = @"";
-    self.searchText = nil;
-    [searchBar resignFirstResponder];
-    
-    [self update];
-    
-    [searchBar setShowsCancelButton:NO animated:YES];
-}
+#pragma mark - SPSearchControllerDelegate methods
 
-#pragma mark - SearchBar Delegate methods
-
-- (BOOL)searchBarShouldBeginEditing:(UISearchBar *)s {
-    
-    if (bDisableUserInteraction || bListViewIsEmpty)
-        return NO;
-    
-    bSearching = YES;
-    
-    [self updateNavigationBar];
-    [searchBar setShowsCancelButton:YES animated:YES];
-    
-    [self.tableView reloadData];
-    
-    return bSearching;
-}
-
-- (void)searchBar:(UISearchBar *)s textDidChange:(NSString *)searchText {
- 
-    self.searchText = s.text;
-    
-    // Don't search immediately; search a tad later to improve performance of search-as-you-type
-    if (searchTimer) {
-        [searchTimer invalidate];
-    }
-    
-    searchTimer = [NSTimer scheduledTimerWithTimeInterval:0.2
-                                                   target:self
-                                                 selector:@selector(performSearch)
-                                                 userInfo:nil
-                                                  repeats:NO];
-    
-}
-
-- (void)searchBarSearchButtonClicked:(UISearchBar *)s {
-    [searchBar endEditing:YES];
-}
-
-- (void)searchBarCancelButtonClicked:(UISearchBar *)s {
-    
-    [self cancelSearchButtonAction:searchBar];
-}
-
-- (void)performSearch
+- (BOOL)searchDisplayControllerShouldBeginSearch:(SearchDisplayController *)controller
 {
-    if (!self.searchText) {
-        return;
-    }
-  
-    [SPTracker trackListNotesSearched];
-    
-    [self updateFetchPredicate];
-    [self updateViewIfEmpty];
-    if ([self.tableView numberOfRowsInSection:0]) {
-        [self.tableView scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]
-                              atScrollPosition:UITableViewScrollPositionTop
-                                      animated:NO];
-    }
-    
-    [searchTimer invalidate];
-    searchTimer = nil;
-}
-
-
-
-#pragma mark - UITableView Data Source
-
-- (NSInteger)numNotes {
-    
-    return self.fetchedResultsController.fetchedObjects.count;
-}
-
-- (Note *)noteForKey:(NSString *)key {
-    
-    for (Note *n in self.fetchedResultsController.fetchedObjects) {
-        
-        if ([n.simperiumKey isEqualToString:key])
-            return n;
-    }
-    
-    return nil;
-}
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    
-    id <NSFetchedResultsSectionInfo> sectionInfo = [[self.fetchedResultsController sections] objectAtIndex:0];
-    return [sectionInfo numberOfObjects];
-}
-
-
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 1;
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    SPTableViewCell* cell = [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
-    
-    if (!cell) {
-        // this shouldn't be needed, but offscreen collection view cells are sometimes called on
-        // and this can lead to an occasional crash
-        cell = [[SPTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
-                                      reuseIdentifier:cellIdentifier];
-    }
-    [self configureCell:cell atIndexPath:indexPath];
-    
-    return cell;
-}
-
-- (void)configureCell:(SPTableViewCell *)cell atIndexPath:(NSIndexPath *)indexPath {
-    
-    Note *note = [self.fetchedResultsController objectAtIndexPath:indexPath];
-    
-    if (!note.preview)
-        [note createPreview];
-    
-    if (note.pinned) {
-        NSAttributedString *attributedSummary = [[NSAttributedString alloc] initWithString:note.preview];
-        if (!_pinImage) {
-            _pinImage = [[[UIImage imageNamed:@"icon_pin"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] imageWithOverlayColor:[self.theme colorForKey:@"noteHeadlineFontColor"]];
-            _pinSearchImage = [[[UIImage imageNamed:@"icon_pin"] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal] imageWithOverlayColor:[self.theme colorForKey:@"noteBodyFontPreviewColor"]];
-        }
-        
-        
-        // New note summary contains a pin image
-        UIImage *pinImage = bSearching ? _pinSearchImage : _pinImage;
-        attributedSummary = [attributedSummary attributedStringWithLeadingImage:pinImage
-                             lineHeight:[self.theme fontWithSystemSizeForKey:@"noteHeadlineFont"].capHeight];
-        cell.previewView.attributedText = attributedSummary;
-    } else
-        cell.previewView.text = note.preview;
-    
-    cell.previewView.alpha = 1.0;
-    
-    if (bSearching) {
-        
-        [cell.previewView.textStorage applyColorAttribute:[self.theme colorForKey:@"tintColor"]
-                                                forRanges:[cell.previewView.text rangesForTerms:_searchText]];
-    }
-
-    cell.accessibilityLabel = note.titlePreview;
-    cell.accessibilityHint = NSLocalizedString(@"Open note", @"Select a note to view in the note editor");
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    
-    return tagFilterType == SPTagFilterTypeDeleted ? NSLocalizedString(@"Restore", @"Restore a note from the trash, markking it as undeleted") : NSLocalizedString(@"Trash-verb", @"Trash (verb) - the action of deleting a note");
-}
-
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    return !bDisableUserInteraction;
-    
-}
-
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    return NO;
-}
-
-- (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    return UITableViewCellEditingStyleDelete;
-}
-
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-    
-        // delete note at index path
-        Note *note = [self.fetchedResultsController objectAtIndexPath:indexPath];
-        
-        if (note.deleted)
-            [[SPObjectManager sharedManager] restoreNote:note];
-        else {
-            
-            [SPTracker trackListNoteDeleted];
-            [[SPObjectManager sharedManager] trashNote:note];
-        }
-        
-        [self updateViewIfEmpty];
-    }
-}
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    
-    if (indexPath.row >= self.fetchedResultsController.fetchedObjects.count) {
-        return;
-    }
-    
-    [[SPRatingsHelper sharedInstance] incrementSignificantEvent];
-    
-    Note *note = [self.fetchedResultsController objectAtIndexPath:indexPath];
-    [self openNote:note fromIndexPath:indexPath animated:YES];
-}
-
-
-#pragma mark - Gestures
-
-- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
-    
     return YES;
 }
 
-- (void)openNote:(Note *)note fromIndexPath:(NSIndexPath *)indexPath animated:(BOOL)animated {
+- (void)searchDisplayController:(SearchDisplayController *)controller updateSearchResults:(NSString *)keyword
+{
+    // Don't search immediately; search a tad later to improve performance of search-as-you-type
+    [self invalidateSearchTimer];
 
+    NSTimeInterval const delay = 0.2;
+    self.searchTimer = [NSTimer scheduledTimerWithTimeInterval:delay repeats:NO block:^(NSTimer * _Nonnull timer) {
+        [self performSearchWithKeyword:keyword];
+    }];    
+}
+
+- (void)searchDisplayControllerWillBeginSearch:(SearchDisplayController *)controller
+{
+    // Note: We avoid switching to SearchMode in `shouldBegin` because it might cause layout issues!
+    [self.notesListController beginSearch];
+    [self.tableView reloadData];
+    [self displaySortBar];
+}
+
+- (void)searchDisplayControllerDidEndSearch:(SearchDisplayController *)controller
+{
+    [self invalidateSearchTimer];
+
+    /// Note:
+    ///  - `endSearch` switches the List Controller to `.results`, and drops immediately the Tags section (if any)
+    ///  - `dismissSortBar` may (under unknown scenarios) trigger a UITableView refresh sequence
+    ///
+    /// Because of the reasons above, we must always ensure `endSearch` is followed by `update` (which reloads the table!)
+    ///
+    /// Ref. https://github.com/Automattic/simplenote-ios/issues/777
+    ///
+    [self.notesListController endSearch];
+    [self update];
+
+    [self dismissSortBar];
+}
+
+
+#pragma mark - SPSearchControllerPresenter methods
+
+- (UINavigationController *)navigationControllerForSearchDisplayController:(SearchDisplayController *)controller
+{
+    return self.navigationController;
+}
+
+
+#pragma mark - Search Helpers
+
+- (void)performSearchWithKeyword:(NSString *)keyword
+{
+    [SPTracker trackListNotesSearched];
+
+    [self.notesListController refreshSearchResultsWithKeyword:keyword];
+
+    [self.tableView scrollToTopWithAnimation:NO];
+    [self.tableView reloadData];
+
+    [self displayPlaceholdersIfNeeded];
+
+    [self invalidateSearchTimer];
+}
+
+- (void)endSearching
+{
+    [self.searchController dismiss];
+}
+
+- (void)invalidateSearchTimer
+{
+    [self.searchTimer invalidate];
+    self.searchTimer = nil;
+}
+
+
+#pragma mark - UIScrollView Delegate
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView
+{
+    // Slowly Fade-In the NavigationBar's Blur
+    [self.navigationBarBackground adjustAlphaMatchingContentOffsetOf:scrollView];
+}
+
+
+#pragma mark - Public API
+
+- (void)openNoteWithSimperiumKey:(NSString *)simperiumKey animated:(BOOL)animated
+{
+    Note *note = [self.notesListController noteForSimperiumKey:simperiumKey];
+    if (!note) {
+        return;
+    }
+
+    [self openNote:note fromIndexPath:nil animated:animated];
+}
+
+- (void)openNote:(Note *)note fromIndexPath:(NSIndexPath *)indexPath animated:(BOOL)animated
+{
     [SPTracker trackListNoteOpened];
-    
-	SPAppDelegate *appDelegate = [SPAppDelegate sharedDelegate];
-    SPNoteEditorViewController *editor = [appDelegate noteEditorViewController];
-    if (!editor) {
-        editor = [[SPNoteEditorViewController alloc] init];
-        [appDelegate setNoteEditorViewController:editor];
-        
-        self.transitionController = [[SPTransitionController alloc] initWithTableView:self.tableView navigationController:self.navigationController];
-        self.transitionController.delegate = self;
-        
-        BOOL isVoiceOverRunning = UIAccessibilityIsVoiceOverRunning();
-        self.navigationController.delegate = isVoiceOverRunning ? nil : self.transitionController;
-        editor.transitioningDelegate = isVoiceOverRunning ? nil : self.transitionController;
-        
-    }
-    
+
+    // SearchBar: Always resign FirstResponder status
+    // Why: https://github.com/Automattic/simplenote-ios/issues/616
+    [self.searchBar resignFirstResponder];
+
+    SPNoteEditorViewController *editor = [[SPAppDelegate sharedDelegate] noteEditorViewController];
     [editor updateNote:note];
-    if (bSearching) {
-        [editor setSearchString:_searchText];
+
+    if (self.isSearchActive) {
+        [editor setSearchString:self.searchText];
     }
-    
-    self.transitionController.selectedPath = indexPath;
-    
+
     // Failsafe:
     // We were getting (a whole lot!) of crash reports with the exception
     // 'Pushing the same view controller instance more than once is not supported'. This is intended to act
@@ -620,375 +480,66 @@
 {
     [SPTracker trackListTrashEmptied];
 	[[SPObjectManager sharedManager] emptyTrash];
-	[emptyTrashButton setEnabled:NO];
-    [self updateViewIfEmpty];
+	[self.emptyTrashButton setEnabled:NO];
+    [self displayPlaceholdersIfNeeded];
 }
 
 
+#pragma mark - NoteListController
 
-
-#pragma mark - NSFetchedResultsController
-
-- (NSArray *)sortDescriptors
+- (void)update
 {
-    NSString *sortKey = nil;
-    BOOL ascending = NO;
-    SEL sortSelector = nil;
-    
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:SPAlphabeticalSortPref]) {
-        
-        sortKey = @"content";
-        ascending = YES;
-        sortSelector = @selector(caseInsensitiveCompare:);
-    } else
-        sortKey = @"modificationDate";
-    
-    //    switch (appDelegate.sortMode) {
-    //		case kSortModify:
-    //            sortKey = @"modificationDate";
-    //			break;
-    //		case kSortCreation:
-    //            sortKey = @"creationDate";
-    //			break;
-    //		case kSortAlpha:
-    //            sortKey = @"content";
-    //			//[self.notes sortUsingSelector:@selector(compareAlpha:)];
-    //            sortSelector = @selector(caseInsensitiveCompare:);
-    //            ascending = YES;
-    //			break;
-    //		case kSortModifyReverse:
-    //            sortKey = @"modificationDate";
-    //            ascending = YES;
-    //			break;
-    //		case kSortCreationReverse:
-    //            sortKey = @"creationDate";
-    //            ascending = YES;
-    //			break;
-    //		case kSortAlphaReverse:
-    //            sortKey = @"content";
-    //			break;
-    //    }
-    NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:sortKey ascending:ascending selector:sortSelector];
-    NSSortDescriptor *pinnedSortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"pinned" ascending:NO];
-    NSArray *sortDescriptors = [[NSArray alloc] initWithObjects:pinnedSortDescriptor, sortDescriptor, nil];
-    
-    return sortDescriptors;
-}
+    [self refreshListController];
+    [self refreshTitle];
+    [self refreshSearchBar];
+    [self refreshSortBarText];
 
-- (void)updateViewIfEmpty {
-    
-    bListViewIsEmpty = !(self.fetchedResultsController.fetchedObjects.count > 0);
-    
-    _emptyListView.hidden = !bListViewIsEmpty;    
-    [_emptyListView hideImageView:bSearching];
-    
-    if (bListViewIsEmpty) {
-        // set appropriate text
-        if (bIndexingNotes || [SPAppDelegate sharedDelegate].bSigningUserOut) {
-            [_emptyListView setText:nil];
-        } else if (bSearching)
-            [_emptyListView setText:NSLocalizedString(@"No Results", @"Message shown when no notes match a search string")];
-        else
-            [_emptyListView setText:NSLocalizedString(@"No Notes", @"Message shown in note list when no notes are in the current view")];
-        
-        CGRect _emptyListViewRect = self.view.bounds;
-        _emptyListViewRect.origin.y += [self.topLayoutGuide length];
-        _emptyListViewRect.size.height -= _emptyListViewRect.origin.y + _keyboardHeight;
-        _emptyListView.frame = _emptyListViewRect;
-        
-        [self.rootView addSubview:_emptyListView];
-        
-        
-    } else {
-        [_emptyListView removeFromSuperview];
-    }
-    
-}
+    BOOL isTrashOnScreen = self.isDeletedFilterActive;
+    BOOL isNotEmpty = !self.isListEmpty;
 
-- (void)update {
+    self.emptyTrashButton.enabled = isTrashOnScreen && isNotEmpty;
+    self.tableView.allowsSelection = !isTrashOnScreen;
     
-    [self updateFetchPredicate];
-    
-    if (tagFilterType == SPTagFilterTypeDeleted) {
-		[emptyTrashButton setEnabled: [self numNotes] > 0];
-    }
-    
-    self.tableView.allowsSelection = !(tagFilterType == SPTagFilterTypeDeleted);
-    
-    [self updateViewIfEmpty];
+    [self displayPlaceholdersIfNeeded];
     [self updateNavigationBar];
     [self hideRatingViewIfNeeded];
 }
 
-- (void)updateFetchPredicate
+
+#pragma mark - SPSidebarContainerDelegate
+
+- (BOOL)sidebarContainerShouldDisplaySidebar:(SPSidebarContainerViewController *)sidebarContainer
 {
-    SPAppDelegate *appDelegate = [SPAppDelegate sharedDelegate];
-    if (appDelegate.selectedTag != nil &&
-        [appDelegate.selectedTag compare:@"trash"] == NSOrderedSame) {
-        
-        tagFilterType = SPTagFilterTypeDeleted;
-        searchBar.placeholder = NSLocalizedString(@"Trash-noun", nil).lowercaseString;
-    }
-    else {
-        
-        tagFilterType = SPTagFilterTypeUserTag;
-        searchBar.placeholder = appDelegate.selectedTag;
-    }
-    
-    NSPredicate *predicate = [self fetchPredicate];
-    [NSFetchedResultsController deleteCacheWithName:@"Root"];
-    [[self.fetchedResultsController fetchRequest] setPredicate: predicate];
-    [[self.fetchedResultsController fetchRequest] setFetchBatchSize:20];
-    [[self.fetchedResultsController fetchRequest] setSortDescriptors:[self sortDescriptors]];
-    
-    
-    NSError *error;
-    if (![[self fetchedResultsController] performFetch:&error]) {
-        // Handle error here
-    }
-    
-    [self.tableView reloadData];
+    // Checking for self.tableView.isEditing prevents showing the sidebar when you use swipe to cancel delete/restore.
+    return !(self.tableView.dragging || self.tableView.isEditing || self.isSearchActive);
 }
 
-
-- (NSPredicate *)fetchPredicate {
-    
-    NSMutableArray *predicateList = [NSMutableArray arrayWithCapacity:3];
-
-    [predicateList addObject: [NSPredicate predicateWithFormat: @"deleted == %@", [NSNumber numberWithBool:tagFilterType == SPTagFilterTypeDeleted]]];
-    
-    if (tagFilterType == SPTagFilterTypeShared)
-        [predicateList addObject: [NSPredicate predicateWithFormat: @"systemTags CONTAINS[c] %@", @"shared"]];
-    
-    if (tagFilterType == SPTagFilterTypePinned)
-        [predicateList addObject: [NSPredicate predicateWithFormat:@"systemTags CONTAINS[c] %@", @"pinned"]];
-    
-    if (tagFilterType == SPTagFilterTypeUnread)
-        [predicateList addObject: [NSPredicate predicateWithFormat:@"systemTags CONTAINS[c] %@", @"unread"]];
-    
-	SPAppDelegate *appDelegate = [SPAppDelegate sharedDelegate];
-    if (tagFilterType == SPTagFilterTypeUserTag && appDelegate.selectedTag.length > 0) {
-        
-        // Match against "tagName" (JSON formatted)
-        NSString *tagName = appDelegate.selectedTag;
-        
-        tagName = [tagName stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
-        tagName = [tagName stringByReplacingOccurrencesOfString:@"/" withString:@"\\/"];
-        
-        // individual tags are surrounded by quotes, thus adding quotes to the selected tag
-        // ensures only the correct notes are shown
-        NSString *match = [[NSString alloc] initWithFormat:@"\"%@\"", tagName];
-        [predicateList addObject: [NSPredicate predicateWithFormat: @"tags CONTAINS[c] %@",match]];
-    }
-    
-    if (self.searchText.length > 0) {
-        NSArray *searchStrings = [self.searchText componentsSeparatedByString:@" "];
-        for (NSString *word in searchStrings) {
-            if (word.length == 0)
-                continue;
-            [predicateList addObject: [NSPredicate predicateWithFormat:@"content CONTAINS[c] %@", word]];
-        }
-    }
-    
-    NSPredicate *compound = [NSCompoundPredicate andPredicateWithSubpredicates:predicateList];
-    
-    return compound;
-}
-
-
-- (NSFetchedResultsController *)fetchedResultsController {
-    
-    if (__fetchedResultsController != nil)
-    {
-        return __fetchedResultsController;
-    }
-    
-    // Set appDelegate here because this might get called before it gets an opportunity to be set previously
-    SPAppDelegate *appDelegate = [SPAppDelegate sharedDelegate];
-    
-    // Create the fetch request for the entity.
-    NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
-    // Edit the entity name as appropriate.
-    NSEntityDescription *entity = [NSEntityDescription entityForName:@"Note" inManagedObjectContext:appDelegate.simperium.managedObjectContext];
-    [fetchRequest setEntity:entity];
-    
-    // Set the batch size to a suitable number.
-    [fetchRequest setFetchBatchSize:20];
-    
-    // Don't fetch deleted notes.
-    NSPredicate *predicate = [self fetchPredicate];
-    [fetchRequest setPredicate: predicate];
-    
-    // Edit the sort key as appropriate.
-    NSArray *sortDescriptors = [self sortDescriptors];
-    [fetchRequest setSortDescriptors:sortDescriptors];
-    
-    // Edit the section name key path and cache name if appropriate.
-    // nil for section name key path means "no sections".
-    NSFetchedResultsController *aFetchedResultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:appDelegate.simperium.managedObjectContext sectionNameKeyPath:nil cacheName:nil];
-    aFetchedResultsController.delegate = self;
-    self.fetchedResultsController = aFetchedResultsController;
-    
-	NSError *error = nil;
-	if (![self.fetchedResultsController performFetch:&error])
-    {
-	    /*
-	     Replace this implementation with code to handle the error appropriately.
-         
-	     abort() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development. If it is not possible to recover from the error, display an alert panel that instructs the user to quit the application by pressing the Home button.
-	     */
-	    NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
-	    abort();
-	}
-    
-    return __fetchedResultsController;
-}
-
-
-- (void)controllerWillChangeContent:(NSFetchedResultsController *)controller {
-    
-    // The fetch controller is about to start sending change notifications, so prepare the table view for updates.
-    [self.tableView beginUpdates];
-}
-
-
-- (void)controller:(NSFetchedResultsController *)controller didChangeObject:(id)anObject atIndexPath:(NSIndexPath *)indexPath forChangeType:(NSFetchedResultsChangeType)type newIndexPath:(NSIndexPath *)newIndexPath {
-    
-    
-    UITableView *tableView = self.tableView;
-    
-    switch(type) {
-            
-        case NSFetchedResultsChangeInsert:
-            [tableView insertRowsAtIndexPaths:[NSArray arrayWithObject:newIndexPath] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        case NSFetchedResultsChangeDelete:
-            [tableView deleteRowsAtIndexPaths:[NSArray arrayWithObject:indexPath] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        case NSFetchedResultsChangeUpdate: {
-            
-            if (newIndexPath == nil)
-            {
-                // remove current preview
-                Note *note = [self.fetchedResultsController objectAtIndexPath:indexPath];
-                note.preview = nil;
-                [self configureCell:(SPTableViewCell *)[tableView cellForRowAtIndexPath:indexPath] atIndexPath:indexPath];
-            }
-            else
-            {
-                [tableView deleteRowsAtIndexPaths:[NSArray arrayWithObject:indexPath]
-                                 withRowAnimation:UITableViewRowAnimationNone];
-                
-                [tableView insertRowsAtIndexPaths:[NSArray arrayWithObject:newIndexPath]
-                                 withRowAnimation:UITableViewRowAnimationNone];
-            }
-            
-            break;
-        }
-        case NSFetchedResultsChangeMove:
-            [tableView deleteRowsAtIndexPaths:[NSArray
-                                               arrayWithObject:indexPath] withRowAnimation:UITableViewRowAnimationFade];
-            [tableView insertRowsAtIndexPaths:[NSArray
-                                               arrayWithObject:newIndexPath] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-    }
-}
-
-- (void)controller:(NSFetchedResultsController *)controller didChangeSection:(id )sectionInfo atIndex:(NSUInteger)sectionIndex forChangeType:(NSFetchedResultsChangeType)type {
-    
-    switch(type) {
-            
-        case NSFetchedResultsChangeInsert:
-            [self.tableView insertSections:[NSIndexSet indexSetWithIndex:sectionIndex] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        case NSFetchedResultsChangeDelete:
-            [self.tableView deleteSections:[NSIndexSet indexSetWithIndex:sectionIndex] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        default:
-            break;
-    }
-}
-
-
-- (void)controllerDidChangeContent:(NSFetchedResultsController *)controller {
-    
-    // The fetch controller has sent all current change notifications, so tell the table view to process all updates.
-    [self.tableView endUpdates];
-    
-    // update the empty list view
-    NSInteger fetchedObjectsCount = self.fetchedResultsController.fetchedObjects.count;
-    if ((fetchedObjectsCount > 0 && bListViewIsEmpty) ||
-        (!(fetchedObjectsCount > 0) && !bListViewIsEmpty))
-        [self updateViewIfEmpty];
-}
-
-#pragma mark - SPRootViewContainerDelegate
-
-- (BOOL)shouldShowSidebar {
- 
-    BOOL showSidePanelOveride = bShouldShowSidePanel;
-    bShouldShowSidePanel = NO;
-
-    return !(self.tableView.dragging || bSearching) || showSidePanelOveride;
-}
-
-- (void)resetNavigationBar {
-    
-    [self updateNavigationBar];
-}
-
-- (void)sidebarWillShow {
-    
+- (void)sidebarContainerWillDisplaySidebar:(SPSidebarContainerViewController *)sidebarContainer
+{
     self.tableView.scrollEnabled = NO;
-    self.tableView.allowsSelection = NO;
-    
-    addButton.customView.tintAdjustmentMode = UIViewTintAdjustmentModeDimmed;
-    addButton.enabled = NO;
-    emptyTrashButton.enabled = NO;
-    
-    [UIView animateWithDuration:0.1
-                     animations:^{
-                         searchBar.alpha = 0.5;
-                     }];
-    
-    bDisableUserInteraction = YES;
-    
-    [(SPNavigationController *)self.navigationController setDisableRotation:YES];
+    self.tableView.userInteractionEnabled = NO;
+    self.searchBar.userInteractionEnabled = NO;
+
+    self.navigationController.navigationBar.userInteractionEnabled = NO;
 }
 
-- (void)sidebarDidHide {
-    
+- (void)sidebarContainerDidDisplaySidebar:(SPSidebarContainerViewController *)sidebarContainer
+{
+    // NO-OP
+}
+
+- (void)sidebarContainerWillHideSidebar:(SPSidebarContainerViewController *)sidebarContainer
+{
+    // NO-OP: The navigationBar's top right button is refreshed via the regular `Update` sequence.
+}
+
+- (void)sidebarContainerDidHideSidebar:(SPSidebarContainerViewController *)sidebarContainer
+{
     self.tableView.scrollEnabled = YES;
-    self.tableView.allowsSelection = !(tagFilterType == SPTagFilterTypeDeleted);
-    
-    addButton.customView.tintAdjustmentMode = UIViewTintAdjustmentModeAutomatic;
-    addButton.enabled = YES;
-    emptyTrashButton.enabled = (tagFilterType == SPTagFilterTypeDeleted && [self numNotes] > 0) || tagFilterType != SPTagFilterTypeDeleted ? YES : NO;
-    
-    [UIView animateWithDuration:0.1
-                     animations:^{
-                         searchBar.alpha = 1.0;
-                     }];
-    
-    bDisableUserInteraction = NO;
-    [(SPNavigationController *)self.navigationController setDisableRotation:NO];
-}
+    self.tableView.userInteractionEnabled = YES;
+    self.searchBar.userInteractionEnabled = YES;
 
-- (void)sidebarDidSlideToPercentVisible:(CGFloat)percentVisible {
-    
-    // when 100% visible, the sidebarButotn should be transformed 90 degrees
-    // when 0% visible, the transform should be identity
-    
-    // calculate transform
-    CGFloat transformAngle = - percentVisible * (90 * M_PI / 180.0);
-    CGFloat horizontalTransformDistance = percentVisible;
-    CGFloat verticalTransformDistance = percentVisible * -2.75;
-    sideBarButtonTransformView.transform = CGAffineTransformConcat(CGAffineTransformMakeRotation(transformAngle),
-                                                      CGAffineTransformMakeTranslation(horizontalTransformDistance, verticalTransformDistance));
+    self.navigationController.navigationBar.userInteractionEnabled = YES;
 }
 
 
@@ -997,117 +548,59 @@
 - (void)setWaitingForIndex:(BOOL)waiting {
     
     // if the current tag is the deleted tag, do not show the activity spinner
-    if (tagFilterType == SPTagFilterTypeDeleted && waiting)
+    if (self.isDeletedFilterActive && waiting) {
         return;
-    
-    if (waiting && self.navigationItem.titleView != activityIndicator && (self.fetchedResultsController.fetchedObjects.count == 0 || _firstLaunch)){
-        
-        if (!activityIndicator)
-            activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:(self.theme.isDark ? UIActivityIndicatorViewStyleWhite : UIActivityIndicatorViewStyleGray)];
-        
-        [activityIndicator startAnimating];
-        bResetTitleView = NO;
-        [self animateTitleViewSwapWithNewView:activityIndicator
-                                   completion:nil];
-        
-    } else if (!waiting && self.navigationItem.titleView != searchBarContainer && !bTitleViewAnimating) {
-        
+    }
+
+    if (waiting && self.navigationItem.titleView == nil && (self.isListEmpty || _firstLaunch)){
+        [self.activityIndicator startAnimating];
+        self.bResetTitleView = NO;
+        [self animateTitleViewSwapWithNewView:self.activityIndicator completion:nil];
+
+    } else if (!waiting && self.navigationItem.titleView != nil && !self.bTitleViewAnimating) {
         [self resetTitleView];
-        
+
     } else if (!waiting) {
-        bResetTitleView = YES;
+        self.bResetTitleView = YES;
     }
     
-    bIndexingNotes = waiting;
+    self.isIndexingNotes = waiting;
 
-    [self updateViewIfEmpty];
+    [self displayPlaceholdersIfNeeded];
 }
 
 - (void)animateTitleViewSwapWithNewView:(UIView *)newView completion:(void (^)())completion {
-    
-    bTitleViewAnimating = YES;
-    [UIView animateWithDuration:0.25
-                     animations:^{
-                         self.navigationItem.titleView.alpha = 0.0;
-                     } completion:^(BOOL finished) {
-                         
-                         self.navigationItem.titleView = newView;
-                         
-                         [UIView animateWithDuration:0.25
-                                          animations:^{
-                                              self.navigationItem.titleView.alpha = 1.0;
-                                          } completion:^(BOOL finished) {
-                                              
-                                              if (completion)
-                                                  completion();
-                                              
-                                              bTitleViewAnimating = NO;
-                                              
-                                              if (bResetTitleView)
-                                                  [self resetTitleView];
-                                              
-                                          }];
-                     }];
-    
+
+    self.bTitleViewAnimating = YES;
+    [UIView animateWithDuration:UIKitConstants.animationShortDuration animations:^{
+        self.navigationItem.titleView.alpha = UIKitConstants.alpha0_0;
+
+    } completion:^(BOOL finished) {
+        self.navigationItem.titleView = newView;
+
+        [UIView animateWithDuration:UIKitConstants.animationShortDuration animations:^{
+            self.navigationItem.titleView.alpha = UIKitConstants.alpha1_0;
+
+        } completion:^(BOOL finished) {
+            if (completion) {
+                completion();
+            }
+
+            self.bTitleViewAnimating = NO;
+
+            if (self.bResetTitleView) {
+                [self resetTitleView];
+            }
+         }];
+     }];
 }
 
 - (void)resetTitleView {
-    
-    [self animateTitleViewSwapWithNewView:searchBarContainer
-                               completion:^{
-                                   bResetTitleView = NO;
-                                   [activityIndicator stopAnimating];
-                               }];
-    
-}
 
-#pragma mark - VoiceOver
-
-- (void)didReceiveVoiceoverNotification:(NSNotification *)notification {
-    
-    BOOL isVoiceOverRunning =UIAccessibilityIsVoiceOverRunning();
-    self.navigationController.delegate = isVoiceOverRunning ? nil : self.transitionController;
-	
-	SPNoteEditorViewController *editor = [[SPAppDelegate sharedDelegate] noteEditorViewController];
-    editor.transitioningDelegate = isVoiceOverRunning ? nil : self.transitionController;
-    
-}
-
-#pragma mark - SPTransitionDelegate
-
-- (void)interactionBegan {
-    
-    [self.navigationController popViewControllerAnimated:YES];
-}
-
-#pragma mark - Keyboard
-
-- (void)keyboardWillShow:(NSNotification *)notification {
-    
-    CGRect keyboardFrame = [(NSValue *)[notification.userInfo objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
-    
-    _keyboardHeight = MIN(keyboardFrame.size.height, keyboardFrame.size.width);
-    
-    UIEdgeInsets tableviewInsets = self.tableView.contentInset;
-    tableviewInsets.bottom += _keyboardHeight;
-    self.tableView.contentInset = tableviewInsets;
-    
-    UIEdgeInsets scrollInsets = self.tableView.scrollIndicatorInsets;
-    scrollInsets.bottom += _keyboardHeight;
-    self.tableView.scrollIndicatorInsets = tableviewInsets;
-}
-
-- (void)keyboardWillHide:(NSNotification *)notification {
-    
-    _keyboardHeight = 0;
-    
-    UIEdgeInsets tableviewInsets = self.tableView.contentInset;
-    tableviewInsets.bottom = [[self bottomLayoutGuide] length];
-    self.tableView.contentInset = tableviewInsets;
-    
-    UIEdgeInsets scrollInsets = self.tableView.scrollIndicatorInsets;
-    scrollInsets.bottom = [[self bottomLayoutGuide] length];;
-    self.tableView.scrollIndicatorInsets = tableviewInsets;
+    [self animateTitleViewSwapWithNewView:nil completion:^{
+        self.bResetTitleView = NO;
+        [self.activityIndicator stopAnimating];
+    }];
 }
 
 
@@ -1121,23 +614,22 @@
     
     [SPTracker trackRatingsPromptSeen];
 
-    // Note:
-    // We use a custom Transition between Note List and Note Editor, that takes snapshots of the notes,
-    // and moves them to their final positions.
-    // Let's fade in the Ratings Reminder once the transition is ready
-    //
-    UIView *ratingsView = self.tableView.tableHeaderView ?: [self newAppRatingView];
-    ratingsView.alpha = kSimplenoteAnimationInvisibleAlpha;
+    UIView *ratingsView = self.tableView.tableHeaderView ?: [self newRatingsView];
 
-    [UIView animateWithDuration:kSimplenoteAnimationDuration
-                          delay:0.0
-                        options:UIViewAnimationOptionCurveEaseIn
-                     animations:^{
-                                    // Animate both, Alpha + Rows Sliding
-                                    ratingsView.alpha = kSimplenoteAnimationVisibleAlpha;
-                                    self.tableView.tableHeaderView = ratingsView;
-                                }
-                     completion:nil];
+    // Calculate the minimum required dimension
+    [ratingsView adjustSizeForCompressedLayout];
+
+    // UITableView will adjust the HeaderView's width. Right afterwards, we'll perform a layout cycle, to avoid glitches
+    self.tableView.tableHeaderView = ratingsView;
+    [ratingsView layoutIfNeeded];
+
+    // And finally ... FadeIn!
+    ratingsView.alpha = UIKitConstants.alpha0_0;
+
+    [UIView animateWithDuration:UIKitConstants.animationShortDuration delay:UIKitConstants.animationDelayZero options:UIViewAnimationOptionCurveEaseIn animations:^{
+        ratingsView.alpha = UIKitConstants.alpha1_0;
+        [self.tableView layoutIfNeeded];
+    } completion:nil];
 }
 
 - (void)hideRatingViewIfNeeded
@@ -1146,68 +638,59 @@
         return;
     }
     
-    [UIView animateWithDuration:kSimplenoteAnimationDuration delay:0.0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+    [UIView animateWithDuration:UIKitConstants.animationShortDuration delay:UIKitConstants.animationDelayZero options:UIViewAnimationOptionCurveEaseIn animations:^{
         self.tableView.tableHeaderView = nil;
-    } completion:^(BOOL success) {
-    }];
+        [self.tableView layoutIfNeeded];
+    } completion:nil];
 }
 
-- (UIView *)newAppRatingView
+- (UIView *)newRatingsView
 {
-    SPRatingsPromptView *appRatingView = [[SPRatingsPromptView alloc] initWithWidth:CGRectGetWidth(self.view.bounds)];
-    appRatingView.label.text = NSLocalizedString(@"What do you think about Simplenote?", @"This is the string we display when prompting the user to review the app");
-    appRatingView.delegate = self;
-    appRatingView.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth;
-    
-    return appRatingView;
+    SPRatingsPromptView *ratingsView = [SPRatingsPromptView loadFromNib];
+    ratingsView.delegate = self;
+    return ratingsView;
 }
 
 
-#pragma mark - ABXPromptViewDelegate
+#pragma mark - SPRatingsPromptDelegate
 
-- (void)appbotPromptForReview
+- (void)displayReviewUI
 {
+    [SKStoreReviewController requestReview];
+
     [SPTracker trackRatingsAppRated];
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:[SPCredentials iTunesReviewURL]]];
     [[SPRatingsHelper sharedInstance] ratedCurrentVersion];
     [self hideRatingViewIfNeeded];
 }
 
-- (void)appbotPromptForFeedback
+- (void)displayFeedbackUI
 {
+    UIViewController *feedbackViewController = [[SPFeedbackManager shared] feedbackViewController];
+    feedbackViewController.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:feedbackViewController animated:YES completion:nil];
+
     [SPTracker trackRatingsFeedbackScreenOpened];
-    [ABXFeedbackViewController showFromController:self placeholder:nil delegate:self];
     [[SPRatingsHelper sharedInstance] gaveFeedbackForCurrentVersion];
     [self hideRatingViewIfNeeded];
 }
 
-- (void)appbotPromptClose
+- (void)dismissRatingsUI
 {
     [SPTracker trackRatingsDeclinedToRate];
     [[SPRatingsHelper sharedInstance] declinedToRateCurrentVersion];
     [self hideRatingViewIfNeeded];
 }
 
-- (void)appbotPromptLiked
+- (void)simplenoteWasLiked
 {
     [SPTracker trackRatingsAppLiked];
     [[SPRatingsHelper sharedInstance] likedCurrentVersion];
 }
 
-- (void)appbotPromptDidntLike
+- (void)simplenoteWasDisliked
 {
     [SPTracker trackRatingsAppDisliked];
     [[SPRatingsHelper sharedInstance] dislikedCurrentVersion];
-}
-
-- (void)abxFeedbackDidSendFeedback
-{
-    [SPTracker trackRatingsFeedbackSent];
-}
-
-- (void)abxFeedbackDidntSendFeedback
-{
-    [SPTracker trackRatingsFeedbackDeclined];
 }
 
 @end

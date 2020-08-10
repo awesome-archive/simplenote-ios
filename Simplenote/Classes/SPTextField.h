@@ -10,6 +10,7 @@
 
 @interface SPTextField : UITextField
 
+@property (nonatomic, assign) NSDirectionalEdgeInsets rightViewInsets;
 @property (nonatomic, strong) UIColor *placeholdTextColor;
 
 @end

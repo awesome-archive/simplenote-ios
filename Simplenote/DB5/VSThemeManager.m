@@ -10,6 +10,7 @@
 #import "SPAppDelegate.h"
 #import "SPNavigationController.h"
 #import "SPTracker.h"
+#import "Simplenote-Swift.h"
 
 NSString *const VSThemeManagerThemeWillChangeNotification = @"VSThemeManagerThemeWillChangeNotification";
 NSString *const VSThemeManagerThemeDidChangeNotification = @"VSThemeManagerThemeDidChangeNotification";
@@ -92,7 +93,7 @@ NSString *const VSThemeManagerThemePrefKey = @"VSThemeManagerThemePrefKey";
                                                   forKey:VSThemeManagerThemePrefKey];
         
         _theme = theme;
-        [self applyAppearanceStylingForTheme:_theme];
+        [self applyAppearanceStyling];
         [[NSNotificationCenter defaultCenter] postNotificationName:VSThemeManagerThemeDidChangeNotification
                                                             object:nil];
         
@@ -103,24 +104,32 @@ NSString *const VSThemeManagerThemePrefKey = @"VSThemeManagerThemePrefKey";
 }
 
 
-- (void)applyAppearanceStylingForTheme:(VSTheme *)theme {
-    
-    UIFont *barButtonFont = [theme fontForKey:@"barButtonFont"];
-    [[UIBarButtonItem appearance] setTitleTextAttributes:@{NSFontAttributeName:barButtonFont}
-                                                forState:UIControlStateNormal];
-    
-    UIFont *navigationBarTitleFont = [theme fontForKey:@"navigationBarTitleFont"];
-    UIColor *navigationBarTitleColor = [theme colorForKey:@"navigationBarTitleFontColor"];
-    [[UINavigationBar appearanceWhenContainedInInstancesOfClasses:@[[SPNavigationController class]]] setTitleTextAttributes:@{NSFontAttributeName: navigationBarTitleFont,
-                                                           NSForegroundColorAttributeName: navigationBarTitleColor}];
-    [[UINavigationBar appearanceWhenContainedInInstancesOfClasses:@[[SPNavigationController class]]] setBarTintColor:[theme colorForKey:@"barTintColor"]];
-    [[UINavigationBar appearanceWhenContainedInInstancesOfClasses:@[[SPNavigationController class]]] setShadowImage:[[theme imageForKey:@"navigationBarShadowImage"] resizableImageWithCapInsets:UIEdgeInsetsMake(1, 0, 0, 0) resizingMode:UIImageResizingModeTile]];
-    [[UINavigationBar appearanceWhenContainedInInstancesOfClasses:@[[SPNavigationController class]]] setBackgroundImage:[[theme imageForKey:@"navigationBarBackgroundImage"]
-                                                      resizableImageWithCapInsets:UIEdgeInsetsMake(44, 0, 0, 0)]
-                                       forBarMetrics:UIBarMetricsDefault];
-    [[UINavigationBar appearanceWhenContainedInInstancesOfClasses:@[[SPNavigationController class]]] setBackgroundImage:[[theme imageForKey:@"navigationBarBackgroundPromptImage"]
-                                                      resizableImageWithCapInsets:UIEdgeInsetsMake(64, 0, 0, 0)]
-                                       forBarMetrics:UIBarMetricsDefaultPrompt];
+- (void)applyAppearanceStyling {
+
+    /// Style: BarButtonItem
+    ///
+    NSDictionary *barButtonTitleAttributes = @{
+        NSFontAttributeName: [UIFont preferredFontForTextStyle:UIFontTextStyleBody]
+    };
+
+    [[UIBarButtonItem appearance] setTitleTextAttributes:barButtonTitleAttributes forState:UIControlStateNormal];
+
+    /// Style: NavigationBar
+    ///
+    UIColor *barTintColor = [UIColor clearColor];
+    UIImage *barBackgroundImage = [UIImage new];
+
+    NSDictionary *barTitleAttributes = @{
+        NSFontAttributeName: [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold],
+        NSForegroundColorAttributeName: [UIColor simplenoteNavigationBarTitleColor]
+    };
+
+    id barAppearance = [UINavigationBar appearanceWhenContainedInInstancesOfClasses:@[[SPNavigationController class]]];
+    [barAppearance setBarTintColor:barTintColor];
+    [barAppearance setBackgroundImage:barBackgroundImage forBarMetrics:UIBarMetricsDefault];
+    [barAppearance setBackgroundImage:barBackgroundImage forBarMetrics:UIBarMetricsDefaultPrompt];
+    [barAppearance setShadowImage:barBackgroundImage];
+    [barAppearance setTitleTextAttributes:barTitleAttributes];
 }
 
 @end
